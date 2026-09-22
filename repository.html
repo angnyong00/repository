@@ -133,6 +133,14 @@ select.sel:focus{border-color:var(--accent)}
 /* GIF 커서 팔로워 */
 #cursorFollow{position:fixed;left:0;top:0;z-index:9999;max-width:40px;max-height:40px;width:auto;height:auto;pointer-events:none;display:none;transform:translate(-4px,-4px)}
 
+/* BGM 미니 플레이어 */
+#bgmPlayer{position:fixed;left:18px;bottom:64px;z-index:15;display:flex;align-items:center;gap:2px;padding:5px 10px;max-width:min(300px,88vw);cursor:grab;user-select:none;touch-action:none}
+#bgmPlayer.dragging{cursor:grabbing}
+#bgmPlayer .ic{width:24px;height:24px}
+.bgmTitle{flex:1 1 auto;min-width:36px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11.5px;color:var(--mute);padding:0 6px;letter-spacing:.01em}
+.bgmRange{-webkit-appearance:none;appearance:none;width:56px;height:3px;background:rgba(255,255,255,.18);accent-color:var(--accent);cursor:pointer;flex:0 0 auto}
+#bgmHost{position:fixed;left:-9999px;bottom:-9999px;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none}
+
 /* 반짝이 트레일 */
 .sparkle{position:fixed;left:0;top:0;z-index:9;border-radius:50%;pointer-events:none;animation:sparkleFall .85s ease-out forwards}
 @keyframes sparkleFall{
@@ -145,6 +153,24 @@ select.sel:focus{border-color:var(--accent)}
 <style id="cursorRuleTag"></style>
 <div id="bgLayer"></div>
 <img id="cursorFollow" alt="">
+
+<div id="bgmPlayer" class="glass-box" title="드래그해서 위치를 옮길 수 있어요" aria-label="배경 음악 플레이어">
+  <button type="button" class="ic" id="bgmPrev" title="이전 곡" aria-label="이전 곡">
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M6 5h2v14H6zM20 5L9 12l11 7z"/></svg>
+  </button>
+  <button type="button" class="ic" id="bgmToggle" title="재생" aria-label="재생">
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg>
+  </button>
+  <button type="button" class="ic" id="bgmNext" title="다음 곡" aria-label="다음 곡">
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M16 5h2v14h-2zM4 5l11 7-11 7z"/></svg>
+  </button>
+  <span class="bgmTitle" id="bgmTitle">재생목록 불러오는 중…</span>
+  <button type="button" class="ic" id="bgmVol" title="음소거" aria-label="음소거">
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M17 8.5a5 5 0 010 7"/></svg>
+  </button>
+  <input type="range" id="bgmRange" class="bgmRange" min="0" max="100" value="60" aria-label="볼륨">
+</div>
+<div id="bgmHost"></div>
 
 <div id="stars"><i></i><i></i><i></i></div>
 
@@ -722,6 +748,88 @@ $('#file').onchange = e => {
     $('#settingsOverlay').classList.remove('open');
   });
 };
+
+/* ---- BGM 미니 플레이어 (유튜브 재생목록) ----
+   재생목록을 바꾸고 싶으면 아래 BGM_PLAYLIST_ID 값만 교체하면 됩니다.
+   (유튜브 링크의 list=뒤에 붙는 부분, 예: ...&list=PLxxxxxxxx&... 에서 PLxxxxxxxx) */
+const BGM_PLAYLIST_ID = 'PLvUSTz7VttoOqzRWnoKt68XLSe0lFCW0r';
+const BGM_POS_KEY = 'space-archive-bgm-pos';
+const ICON_PLAY = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg>';
+const ICON_PAUSE = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><rect x="6" y="4.5" width="4" height="15"/><rect x="14" y="4.5" width="4" height="15"/></svg>';
+const ICON_VOL = $('#bgmVol').innerHTML;
+const ICON_MUTE = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M17 9l4 6M21 9l-4 6"/></svg>';
+
+let bgmPlayer = null, bgmReady = false;
+(function loadYT() {
+  const tag = document.createElement('script');
+  tag.src = 'https://www.youtube.com/iframe_api';
+  document.head.appendChild(tag);
+})();
+window.onYouTubeIframeAPIReady = function () {
+  bgmPlayer = new YT.Player('bgmHost', {
+    height: '1', width: '1',
+    playerVars: { listType: 'playlist', list: BGM_PLAYLIST_ID, autoplay: 0, controls: 0, disablekb: 1, modestbranding: 1, rel: 0 },
+    events: {
+      onReady: e => { bgmReady = true; e.target.setVolume(+$('#bgmRange').value); updateBgmTitle(); },
+      onStateChange: onBgmState
+    }
+  });
+};
+function updateBgmTitle() {
+  try {
+    const d = bgmPlayer.getVideoData();
+    $('#bgmTitle').textContent = (d && d.title) ? d.title : '재생목록 불러오는 중…';
+  } catch (e) {}
+}
+function onBgmState(e) {
+  if (e.data === YT.PlayerState.PLAYING) { $('#bgmToggle').innerHTML = ICON_PAUSE; $('#bgmToggle').title = '일시정지'; updateBgmTitle(); }
+  else if (e.data === YT.PlayerState.PAUSED) { $('#bgmToggle').innerHTML = ICON_PLAY; $('#bgmToggle').title = '재생'; }
+  else if (e.data === YT.PlayerState.CUED) updateBgmTitle();
+}
+$('#bgmToggle').onclick = () => {
+  if (!bgmReady) return;
+  bgmPlayer.getPlayerState() === YT.PlayerState.PLAYING ? bgmPlayer.pauseVideo() : bgmPlayer.playVideo();
+};
+$('#bgmPrev').onclick = () => bgmReady && bgmPlayer.previousVideo();
+$('#bgmNext').onclick = () => bgmReady && bgmPlayer.nextVideo();
+$('#bgmRange').oninput = e => { if (bgmReady) bgmPlayer.setVolume(+e.target.value); };
+$('#bgmVol').onclick = () => {
+  if (!bgmReady) return;
+  if (bgmPlayer.isMuted()) { bgmPlayer.unMute(); $('#bgmVol').innerHTML = ICON_VOL; $('#bgmVol').title = '음소거'; }
+  else { bgmPlayer.mute(); $('#bgmVol').innerHTML = ICON_MUTE; $('#bgmVol').title = '음소거 해제'; }
+};
+
+/* 드래그로 위치 옮기기 + 위치 기억(localStorage) */
+(function makeBgmDraggable() {
+  const box = $('#bgmPlayer');
+  function place(x, y) {
+    const w = box.offsetWidth || 260, h = box.offsetHeight || 36;
+    x = Math.max(6, Math.min(x, innerWidth - w - 6));
+    y = Math.max(6, Math.min(y, innerHeight - h - 6));
+    box.style.left = x + 'px'; box.style.top = y + 'px'; box.style.bottom = 'auto';
+  }
+  let saved; try { saved = JSON.parse(localStorage.getItem(BGM_POS_KEY)); } catch (e) {}
+  if (saved && typeof saved.x === 'number') requestAnimationFrame(() => place(saved.x, saved.y));
+
+  let dragging = false, sx = 0, sy = 0, ox = 0, oy = 0;
+  box.addEventListener('pointerdown', e => {
+    if (e.target.closest('button,input')) return;
+    dragging = true; box.classList.add('dragging');
+    box.setPointerCapture(e.pointerId);
+    const r = box.getBoundingClientRect();
+    sx = e.clientX; sy = e.clientY; ox = r.left; oy = r.top;
+  });
+  box.addEventListener('pointermove', e => { if (dragging) place(ox + (e.clientX - sx), oy + (e.clientY - sy)); });
+  function endDrag() {
+    if (!dragging) return;
+    dragging = false; box.classList.remove('dragging');
+    const r = box.getBoundingClientRect();
+    localStorage.setItem(BGM_POS_KEY, JSON.stringify({ x: r.left, y: r.top }));
+  }
+  box.addEventListener('pointerup', endDrag);
+  box.addEventListener('pointercancel', endDrag);
+  addEventListener('resize', () => { const r = box.getBoundingClientRect(); place(r.left, r.top); });
+})();
 
 applySettings();
 render();
