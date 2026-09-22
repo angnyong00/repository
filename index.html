@@ -763,15 +763,23 @@ let bgmPlayer = null, bgmReady = false;
 (function loadYT() {
   const tag = document.createElement('script');
   tag.src = 'https://www.youtube.com/iframe_api';
+  tag.onerror = () => console.error('[BGM] 유튜브 API 스크립트 로드 실패 (네트워크/차단 문제일 수 있음)');
   document.head.appendChild(tag);
 })();
 window.onYouTubeIframeAPIReady = function () {
+  console.log('[BGM] YouTube API ready, creating player…');
   bgmPlayer = new YT.Player('bgmHost', {
     height: '1', width: '1',
     playerVars: { listType: 'playlist', list: BGM_PLAYLIST_ID, autoplay: 0, controls: 0, disablekb: 1, modestbranding: 1, rel: 0 },
     events: {
-      onReady: e => { bgmReady = true; e.target.setVolume(+$('#bgmRange').value); updateBgmTitle(); },
-      onStateChange: onBgmState
+      onReady: e => { bgmReady = true; console.log('[BGM] player ready'); e.target.setVolume(+$('#bgmRange').value); updateBgmTitle(); },
+      onStateChange: onBgmState,
+      onError: e => {
+        // 2,5,100,101,150 = 재생 불가/임베드 금지된 곡. 자동으로 다음 곡으로 넘어감.
+        console.warn('[BGM] 재생 불가 트랙, 다음 곡으로 넘어갑니다. 에러 코드:', e.data);
+        $('#bgmTitle').textContent = '이 곡은 재생 불가 — 다음 곡으로 넘어감';
+        setTimeout(() => bgmReady && bgmPlayer.nextVideo(), 800);
+      }
     }
   });
 };
@@ -787,7 +795,7 @@ function onBgmState(e) {
   else if (e.data === YT.PlayerState.CUED) updateBgmTitle();
 }
 $('#bgmToggle').onclick = () => {
-  if (!bgmReady) return;
+  if (!bgmReady) { console.warn('[BGM] 플레이어가 아직 준비되지 않았습니다 (bgmReady=false). API 로드가 안 됐거나 아직 진행 중일 수 있어요.'); return; }
   bgmPlayer.getPlayerState() === YT.PlayerState.PLAYING ? bgmPlayer.pauseVideo() : bgmPlayer.playVideo();
 };
 $('#bgmPrev').onclick = () => bgmReady && bgmPlayer.previousVideo();
