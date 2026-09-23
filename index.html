@@ -751,70 +751,109 @@ $('#file').onchange = e => {
 
 /* ---- BGM 미니 플레이어 (유튜브 재생목록) ----
    재생목록을 바꾸고 싶으면 아래 BGM_PLAYLIST_ID 값만 교체하면 됩니다.
-   (유튜브 링크의 list=뒤에 붙는 부분, 예: ...&list=PLxxxxxxxx&... 에서 PLxxxxxxxx) */
+   (유튜브 링크의 list=뒤에 붙는 부분, 예: ...&list=PLxxxxxxxx&... 에서 PLxxxxxxxx)
+   유튜브의 "list=재생목록 통째로 불러오기" 방식이 불안정해서, 대신 YouTube Data API로
+   재생목록 안의 영상 ID들을 직접 가져온 다음, 영상 하나하나를 개별로 재생하는 훨씬
+   안정적인 방식을 씁니다. */
 const BGM_PLAYLIST_ID = 'PLvUSTz7VttoOqzRWnoKt68XLSe0lFCW0r';
+const YT_API_KEY = 'AIzaSyBS-I9MihM3hFl6YMQbGTN5y_1eWoV0fN0';
 const BGM_POS_KEY = 'space-archive-bgm-pos';
+const BGM_CACHE_KEY = 'space-archive-bgm-queue';
 const ICON_PLAY = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg>';
 const ICON_PAUSE = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><rect x="6" y="4.5" width="4" height="15"/><rect x="14" y="4.5" width="4" height="15"/></svg>';
 const ICON_VOL = $('#bgmVol').innerHTML;
 const ICON_MUTE = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M17 9l4 6M21 9l-4 6"/></svg>';
 
-let bgmPlayer = null, bgmReady = false;
+let bgmPlayer = null, bgmReady = false, bgmQueue = [], bgmIndex = 0, bgmSkipAttempts = 0;
+
 (function loadYT() {
   const tag = document.createElement('script');
   tag.src = 'https://www.youtube.com/iframe_api';
   tag.onerror = () => console.error('[BGM] 유튜브 API 스크립트 로드 실패 (네트워크/차단 문제일 수 있음)');
   document.head.appendChild(tag);
 })();
-let bgmSkipAttempts = 0;
+
+async function fetchBgmQueue() {
+  const items = [];
+  let pageToken = '';
+  try {
+    do {
+      const url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${BGM_PLAYLIST_ID}&key=${YT_API_KEY}${pageToken ? '&pageToken=' + pageToken : ''}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.error) throw new Error(data.error.message || 'API error');
+      (data.items || []).forEach(it => {
+        const vid = it.snippet && it.snippet.resourceId && it.snippet.resourceId.videoId;
+        if (vid) items.push({ id: vid, title: it.snippet.title || vid });
+      });
+      pageToken = data.nextPageToken || '';
+    } while (pageToken);
+    if (!items.length) throw new Error('재생목록이 비어있거나 접근할 수 없음');
+    console.log(`[BGM] 재생목록 ${items.length}곡 불러옴`);
+    try { localStorage.setItem(BGM_CACHE_KEY, JSON.stringify({ ts: Date.now(), items })); } catch (e) {}
+    return items;
+  } catch (e) {
+    console.warn('[BGM] 재생목록 API 불러오기 실패:', e.message, '— 캐시된 목록 시도');
+    try {
+      const cached = JSON.parse(localStorage.getItem(BGM_CACHE_KEY));
+      if (cached && cached.items && cached.items.length) { console.log('[BGM] 캐시 사용:', cached.items.length, '곡'); return cached.items; }
+    } catch (e2) {}
+    return [];
+  }
+}
+
+function cueBgmAt(i, autoplay) {
+  if (!bgmReady || !bgmQueue.length) return;
+  bgmIndex = ((i % bgmQueue.length) + bgmQueue.length) % bgmQueue.length;
+  const track = bgmQueue[bgmIndex];
+  $('#bgmTitle').textContent = track.title;
+  autoplay ? bgmPlayer.loadVideoById(track.id) : bgmPlayer.cueVideoById(track.id);
+}
+
 window.onYouTubeIframeAPIReady = function () {
   console.log('[BGM] YouTube API ready, creating player…');
   bgmPlayer = new YT.Player('bgmHost', {
     events: {
-      onReady: e => {
+      onReady: async e => {
         bgmReady = true;
         console.log('[BGM] player ready');
         e.target.setVolume(+$('#bgmRange').value);
-        // 진단용: 주소 끝에 ?bgmtest=영상ID 를 붙이면 재생목록 대신 그 영상 하나로 테스트합니다.
-        const testId = new URLSearchParams(location.search).get('bgmtest');
-        if (testId) { console.log('[BGM] 테스트 모드 — 단일 영상 큐잉:', testId); e.target.cueVideoById(testId); }
-        else e.target.cuePlaylist({ listType: 'playlist', list: BGM_PLAYLIST_ID, index: 0 });
-        updateBgmTitle();
+        bgmQueue = await fetchBgmQueue();
+        if (bgmQueue.length) cueBgmAt(0, false);
+        else $('#bgmTitle').textContent = '재생목록을 불러오지 못함';
       },
-      onStateChange: e => { if (e.data === YT.PlayerState.PLAYING) bgmSkipAttempts = 0; onBgmState(e); },
+      onStateChange: e => {
+        if (e.data === YT.PlayerState.PLAYING) bgmSkipAttempts = 0;
+        if (e.data === YT.PlayerState.ENDED) cueBgmAt(bgmIndex + 1, true);
+        onBgmState(e);
+      },
       onError: e => {
         // 2,5,100,101,150 = 재생 불가/임베드 금지된 곡. 자동으로 다음 곡으로 넘어감.
         bgmSkipAttempts++;
         console.warn(`[BGM] 재생 불가 트랙 (에러 코드 ${e.data}) — 넘긴 횟수: ${bgmSkipAttempts}`);
-        if (new URLSearchParams(location.search).get('bgmtest')) { $('#bgmTitle').textContent = '테스트 영상도 재생 불가 (코드 ' + e.data + ')'; return; }
-        if (bgmSkipAttempts > 70) {
+        if (bgmSkipAttempts > bgmQueue.length + 2) {
           $('#bgmTitle').textContent = '재생 가능한 곡을 찾지 못함';
-          console.error('[BGM] 재생목록 대부분/전체가 임베드 제한된 것으로 보입니다. (67곡 이상 연속 실패)');
+          console.error('[BGM] 재생목록 전체가 임베드 제한된 것으로 보입니다.');
           return;
         }
-        $('#bgmTitle').textContent = '재생 불가 곡, 넘기는 중…';
-        bgmPlayer.nextVideo();
+        cueBgmAt(bgmIndex + 1, true);
       }
     }
   });
 };
-function updateBgmTitle() {
-  try {
-    const d = bgmPlayer.getVideoData();
-    $('#bgmTitle').textContent = (d && d.title) ? d.title : '재생목록 불러오는 중…';
-  } catch (e) {}
-}
 function onBgmState(e) {
-  if (e.data === YT.PlayerState.PLAYING) { $('#bgmToggle').innerHTML = ICON_PAUSE; $('#bgmToggle').title = '일시정지'; updateBgmTitle(); }
+  if (e.data === YT.PlayerState.PLAYING) { $('#bgmToggle').innerHTML = ICON_PAUSE; $('#bgmToggle').title = '일시정지'; }
   else if (e.data === YT.PlayerState.PAUSED) { $('#bgmToggle').innerHTML = ICON_PLAY; $('#bgmToggle').title = '재생'; }
-  else if (e.data === YT.PlayerState.CUED) updateBgmTitle();
 }
 $('#bgmToggle').onclick = () => {
-  if (!bgmReady) { console.warn('[BGM] 플레이어가 아직 준비되지 않았습니다 (bgmReady=false). API 로드가 안 됐거나 아직 진행 중일 수 있어요.'); return; }
-  bgmPlayer.getPlayerState() === YT.PlayerState.PLAYING ? bgmPlayer.pauseVideo() : bgmPlayer.playVideo();
+  if (!bgmReady || !bgmQueue.length) return;
+  const s = bgmPlayer.getPlayerState();
+  if (s === YT.PlayerState.PLAYING) bgmPlayer.pauseVideo();
+  else if (s === YT.PlayerState.CUED || s === YT.PlayerState.PAUSED) bgmPlayer.playVideo();
+  else cueBgmAt(bgmIndex, true);
 };
-$('#bgmPrev').onclick = () => bgmReady && bgmPlayer.previousVideo();
-$('#bgmNext').onclick = () => bgmReady && bgmPlayer.nextVideo();
+$('#bgmPrev').onclick = () => cueBgmAt(bgmIndex - 1, true);
+$('#bgmNext').onclick = () => cueBgmAt(bgmIndex + 1, true);
 $('#bgmRange').oninput = e => { if (bgmReady) bgmPlayer.setVolume(+e.target.value); };
 $('#bgmVol').onclick = () => {
   if (!bgmReady) return;
