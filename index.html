@@ -766,19 +766,34 @@ let bgmPlayer = null, bgmReady = false;
   tag.onerror = () => console.error('[BGM] 유튜브 API 스크립트 로드 실패 (네트워크/차단 문제일 수 있음)');
   document.head.appendChild(tag);
 })();
+let bgmSkipAttempts = 0;
 window.onYouTubeIframeAPIReady = function () {
   console.log('[BGM] YouTube API ready, creating player…');
+  // 진단용: 주소 끝에 ?bgmtest=영상ID 를 붙이면 재생목록 대신 그 영상 하나로 테스트합니다.
+  // 예) https://.../repository.html?bgmtest=dQw4w9WgXcQ  (항상 임베드 가능한 영상으로 테스트)
+  const testId = new URLSearchParams(location.search).get('bgmtest');
+  const pv = testId
+    ? { videoId: testId, autoplay: 0, controls: 0, disablekb: 1, modestbranding: 1, rel: 0 }
+    : { listType: 'playlist', list: BGM_PLAYLIST_ID, autoplay: 0, controls: 0, disablekb: 1, modestbranding: 1, rel: 0 };
+  if (testId) console.log('[BGM] 테스트 모드 — 단일 영상으로 재생 시도:', testId);
   bgmPlayer = new YT.Player('bgmHost', {
     height: '1', width: '1',
-    playerVars: { listType: 'playlist', list: BGM_PLAYLIST_ID, autoplay: 0, controls: 0, disablekb: 1, modestbranding: 1, rel: 0 },
+    playerVars: pv,
     events: {
       onReady: e => { bgmReady = true; console.log('[BGM] player ready'); e.target.setVolume(+$('#bgmRange').value); updateBgmTitle(); },
-      onStateChange: onBgmState,
+      onStateChange: e => { if (e.data === YT.PlayerState.PLAYING) bgmSkipAttempts = 0; onBgmState(e); },
       onError: e => {
         // 2,5,100,101,150 = 재생 불가/임베드 금지된 곡. 자동으로 다음 곡으로 넘어감.
-        console.warn('[BGM] 재생 불가 트랙, 다음 곡으로 넘어갑니다. 에러 코드:', e.data);
-        $('#bgmTitle').textContent = '이 곡은 재생 불가 — 다음 곡으로 넘어감';
-        setTimeout(() => bgmReady && bgmPlayer.nextVideo(), 800);
+        bgmSkipAttempts++;
+        console.warn(`[BGM] 재생 불가 트랙 (에러 코드 ${e.data}) — 넘긴 횟수: ${bgmSkipAttempts}`);
+        if (testId) { $('#bgmTitle').textContent = '테스트 영상도 재생 불가 (코드 ' + e.data + ')'; return; }
+        if (bgmSkipAttempts > 70) {
+          $('#bgmTitle').textContent = '재생 가능한 곡을 찾지 못함';
+          console.error('[BGM] 재생목록 대부분/전체가 임베드 제한된 것으로 보입니다. (67곡 이상 연속 실패)');
+          return;
+        }
+        $('#bgmTitle').textContent = '재생 불가 곡, 넘기는 중…';
+        bgmPlayer.nextVideo();
       }
     }
   });
