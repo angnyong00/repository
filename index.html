@@ -166,7 +166,6 @@ select.sel:focus{border-color:var(--accent)}
 .bgmTitleWrap.scroll #bgmTitleClone{display:inline-block}
 .bgmTitleWrap.scroll .bgmTrack{animation:bgmMarquee var(--dur,10s) linear infinite}
 @keyframes bgmMarquee{from{transform:translateX(0)}to{transform:translateX(calc(var(--dist,0px) * -1))}}
-@media(prefers-reduced-motion:reduce){.bgmTitleWrap.scroll .bgmTrack{animation:none}}
 
 /* 중앙: 원형 버튼 */
 .bgmCtrls{display:flex;align-items:center;justify-content:center;gap:12px}
@@ -188,7 +187,7 @@ select.sel:focus{border-color:var(--accent)}
 .bgmRange::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:12px;height:12px;margin-top:1px;background:#fff;border:0;border-radius:50%!important;box-shadow:0 0 0 1px rgba(255,255,255,.4),0 1px 4px rgba(0,0,0,.4)}
 .bgmRange::-moz-range-track{height:14px;background:transparent}
 .bgmRange::-moz-range-thumb{width:12px;height:12px;background:#fff;border:0;border-radius:50%!important}
-#bgmHost{position:fixed;left:-9999px;bottom:-9999px;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none}
+#bgmHost{position:fixed;left:0;bottom:0;width:200px;height:200px;opacity:0;pointer-events:none;z-index:-1}
 
 /* 반짝이 트레일 */
 .sparkle{position:fixed;left:0;top:0;z-index:9;border-radius:50%;pointer-events:none;animation:sparkleFall .85s ease-out forwards}
@@ -834,6 +833,30 @@ let bgmPlayer = null, bgmReady = false, bgmQueue = [], bgmIndex = 0, bgmSkipAtte
   document.head.appendChild(tag);
 })();
 
+const BGM_REGION = 'KR';
+async function filterPlayable(items) {
+  try {
+    const ok = new Set();
+    for (let i = 0; i < items.length; i += 50) {
+      const ids = items.slice(i, i + 50).map(x => x.id).join(',');
+      const res = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=status,contentDetails&id=${ids}&key=${YT_API_KEY}`);
+      const data = await res.json();
+      if (data.error) throw new Error(data.error.message || 'API error');
+      (data.items || []).forEach(v => {
+        const embeddable = v.status && v.status.embeddable !== false;
+        const rr = v.contentDetails && v.contentDetails.regionRestriction;
+        const blocked = rr && ((rr.blocked && rr.blocked.includes(BGM_REGION)) || (rr.allowed && !rr.allowed.includes(BGM_REGION)));
+        if (embeddable && !blocked) ok.add(v.id);
+      });
+    }
+    const filtered = items.filter(x => ok.has(x.id));
+    return filtered.length ? filtered : items;
+  } catch (e) {
+    console.warn('[BGM] 재생 가능 여부 확인 실패, 전체 목록 사용:', e.message);
+    return items;
+  }
+}
+
 async function fetchBgmQueue() {
   const items = [];
   let pageToken = '';
@@ -850,9 +873,10 @@ async function fetchBgmQueue() {
       pageToken = data.nextPageToken || '';
     } while (pageToken);
     if (!items.length) throw new Error('재생목록이 비어있거나 접근할 수 없음');
-    console.log(`[BGM] 재생목록 ${items.length}곡 불러옴`);
-    try { localStorage.setItem(BGM_CACHE_KEY, JSON.stringify({ ts: Date.now(), items })); } catch (e) {}
-    return items;
+    const playable = await filterPlayable(items);
+    console.log(`[BGM] 재생목록 ${items.length}곡 중 재생 가능 ${playable.length}곡`);
+    try { localStorage.setItem(BGM_CACHE_KEY, JSON.stringify({ ts: Date.now(), items: playable })); } catch (e) {}
+    return playable;
   } catch (e) {
     console.warn('[BGM] 재생목록 API 불러오기 실패:', e.message, '— 캐시된 목록 시도');
     try {
