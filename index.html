@@ -133,12 +133,61 @@ select.sel:focus{border-color:var(--accent)}
 /* GIF 커서 팔로워 */
 #cursorFollow{position:fixed;left:0;top:0;z-index:9999;max-width:40px;max-height:40px;width:auto;height:auto;pointer-events:none;display:none;transform:translate(-4px,-4px)}
 
-/* BGM 미니 플레이어 */
-#bgmPlayer{position:fixed;left:18px;bottom:64px;z-index:15;display:flex;align-items:center;gap:2px;padding:5px 10px;max-width:min(300px,88vw);cursor:grab;user-select:none;touch-action:none}
+/* BGM 미니 플레이어 (카세트 카드 · 반투명 화이트 글래스) */
+#bgmPlayer{position:fixed;left:18px;bottom:64px;z-index:15;width:min(252px,88vw);display:flex;flex-direction:column;align-items:stretch;gap:10px;padding:20px 14px 12px;cursor:grab;user-select:none;touch-action:none;
+  background:rgba(255,255,255,.18);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  border:1px solid rgba(255,255,255,.38);
+  border-radius:18px!important;
+  box-shadow:0 10px 30px -14px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.35)}
 #bgmPlayer.dragging{cursor:grabbing}
-#bgmPlayer .ic{width:24px;height:24px}
-.bgmTitle{flex:1 1 auto;min-width:36px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11.5px;color:var(--mute);padding:0 6px;letter-spacing:.01em}
-.bgmRange{-webkit-appearance:none;appearance:none;width:56px;height:3px;background:rgba(255,255,255,.18);accent-color:var(--accent);cursor:pointer;flex:0 0 auto}
+/* 카세트 나사 */
+#bgmPlayer::before{content:'';position:absolute;top:7px;left:11px;width:5px;height:5px;background:rgba(255,255,255,.75);border-radius:50%!important;pointer-events:none}
+
+/* 접기 버튼(오른쪽 위) / 접힌 상태의 작은 음악 아이콘 */
+.bgmFold{position:absolute;top:3px;right:8px;width:18px;height:18px;display:grid;place-items:center;padding:0;color:#fff;background:none;border:0;border-radius:50%!important;cursor:pointer;transition:background .2s}
+.bgmFold:hover{background:rgba(255,255,255,.26)}
+.bgmFold:focus-visible,.bgmOpen:focus-visible{outline:1px solid #fff;outline-offset:2px}
+.bgmOpen{display:none;width:100%;height:100%;padding:0;place-items:center;color:#fff;background:none;border:0;border-radius:50%!important;cursor:pointer}
+.bgmOpen svg{width:20px;height:20px}
+#bgmPlayer.mini{width:44px;height:44px;padding:0;gap:0;align-items:center;justify-content:center;border-radius:50%!important}
+#bgmPlayer.mini::before{display:none}
+#bgmPlayer.mini > :not(.bgmOpen){display:none}
+#bgmPlayer.mini .bgmOpen{display:grid}
+
+/* 상단: 제목 라벨 + 전광판 흐름 */
+.bgmLabel{padding:4px 10px;overflow:hidden;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.42);border-radius:9px!important}
+.bgmTitleWrap{display:block;overflow:hidden;text-align:center;line-height:1.5}
+.bgmTitleWrap.scroll{text-align:left;-webkit-mask-image:linear-gradient(90deg,transparent,#000 10px,#000 calc(100% - 10px),transparent);mask-image:linear-gradient(90deg,transparent,#000 10px,#000 calc(100% - 10px),transparent)}
+.bgmTrack{display:inline-flex;white-space:nowrap}
+.bgmTitle{flex:0 0 auto;display:inline-block;font-size:12px;letter-spacing:.02em;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.35)}
+#bgmTitleClone{display:none}
+.bgmTitleWrap.scroll .bgmTitle{padding-right:28px}
+.bgmTitleWrap.scroll #bgmTitleClone{display:inline-block}
+.bgmTitleWrap.scroll .bgmTrack{animation:bgmMarquee var(--dur,10s) linear infinite}
+@keyframes bgmMarquee{from{transform:translateX(0)}to{transform:translateX(calc(var(--dist,0px) * -1))}}
+@media(prefers-reduced-motion:reduce){.bgmTitleWrap.scroll .bgmTrack{animation:none}}
+
+/* 중앙: 원형 버튼 */
+.bgmCtrls{display:flex;align-items:center;justify-content:center;gap:12px}
+.bgmBtn{flex:0 0 auto;display:grid;place-items:center;width:30px;height:30px;padding:0;color:#fff;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.55);border-radius:50%!important;cursor:pointer;transition:background .2s,transform .15s}
+.bgmBtn:hover{background:rgba(255,255,255,.34)}
+.bgmBtn:active{transform:scale(.92)}
+.bgmBtn:focus-visible{outline:1px solid #fff;outline-offset:2px}
+#bgmToggle{width:40px;height:40px}
+#bgmToggle svg{width:16px;height:16px}
+#bgmPlayer.playing #bgmToggle{background:rgba(255,255,255,.36)}
+
+/* 하단: 음량 */
+.bgmVolRow{display:flex;align-items:center;gap:8px}
+#bgmVol{width:24px;height:24px;background:none;border-color:transparent}
+#bgmVol:hover{background:rgba(255,255,255,.22)}
+.bgmRange{-webkit-appearance:none;appearance:none;flex:1 1 auto;min-width:0;height:14px;margin:0;cursor:pointer;outline:none;
+  background:linear-gradient(90deg,#fff var(--v,60%),rgba(255,255,255,.32) var(--v,60%)) center/100% 3px no-repeat}
+.bgmRange::-webkit-slider-runnable-track{height:14px;background:transparent}
+.bgmRange::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:12px;height:12px;margin-top:1px;background:#fff;border:0;border-radius:50%!important;box-shadow:0 0 0 1px rgba(255,255,255,.4),0 1px 4px rgba(0,0,0,.4)}
+.bgmRange::-moz-range-track{height:14px;background:transparent}
+.bgmRange::-moz-range-thumb{width:12px;height:12px;background:#fff;border:0;border-radius:50%!important}
 #bgmHost{position:fixed;left:-9999px;bottom:-9999px;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none}
 
 /* 반짝이 트레일 */
@@ -155,20 +204,32 @@ select.sel:focus{border-color:var(--accent)}
 <img id="cursorFollow" alt="">
 
 <div id="bgmPlayer" class="glass-box" title="드래그해서 위치를 옮길 수 있어요" aria-label="배경 음악 플레이어">
-  <button type="button" class="ic" id="bgmPrev" title="이전 곡" aria-label="이전 곡">
-    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M6 5h2v14H6zM20 5L9 12l11 7z"/></svg>
+  <button type="button" class="bgmFold" id="bgmFold" title="접기" aria-label="플레이어 접기">
+    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h14"/></svg>
   </button>
-  <button type="button" class="ic" id="bgmToggle" title="재생" aria-label="재생">
-    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg>
+  <button type="button" class="bgmOpen" id="bgmOpen" title="음악 플레이어 열기" aria-label="음악 플레이어 열기">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V6l10-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/></svg>
   </button>
-  <button type="button" class="ic" id="bgmNext" title="다음 곡" aria-label="다음 곡">
-    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M16 5h2v14h-2zM4 5l11 7-11 7z"/></svg>
-  </button>
-  <span class="bgmTitle" id="bgmTitle">재생목록 불러오는 중…</span>
-  <button type="button" class="ic" id="bgmVol" title="음소거" aria-label="음소거">
-    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M17 8.5a5 5 0 010 7"/></svg>
-  </button>
-  <input type="range" id="bgmRange" class="bgmRange" min="0" max="100" value="60" aria-label="볼륨">
+  <div class="bgmLabel">
+    <span class="bgmTitleWrap"><span class="bgmTrack"><span class="bgmTitle" id="bgmTitle">재생목록 불러오는 중…</span><span class="bgmTitle" id="bgmTitleClone" aria-hidden="true"></span></span></span>
+  </div>
+  <div class="bgmCtrls">
+    <button type="button" class="bgmBtn" id="bgmPrev" title="이전 곡" aria-label="이전 곡">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M6 5h2v14H6zM20 5L9 12l11 7z"/></svg>
+    </button>
+    <button type="button" class="bgmBtn" id="bgmToggle" title="재생" aria-label="재생">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg>
+    </button>
+    <button type="button" class="bgmBtn" id="bgmNext" title="다음 곡" aria-label="다음 곡">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M16 5h2v14h-2zM4 5l11 7-11 7z"/></svg>
+    </button>
+  </div>
+  <div class="bgmVolRow">
+    <button type="button" class="bgmBtn" id="bgmVol" title="음소거" aria-label="음소거">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M17 8.5a5 5 0 010 7"/></svg>
+    </button>
+    <input type="range" id="bgmRange" class="bgmRange" min="0" max="100" value="60" aria-label="볼륨">
+  </div>
 </div>
 <div id="bgmHost"></div>
 
@@ -828,7 +889,13 @@ window.onYouTubeIframeAPIReady = function () {
         onBgmState(e);
       },
       onError: e => {
-        // 2,5,100,101,150 = 재생 불가/임베드 금지된 곡. 자동으로 다음 곡으로 넘어감.
+        // 100,101,150 등 = 이 곡만 재생 불가/임베드 금지 → 다음 곡으로 넘어감.
+        // 153 같은 그 외 오류는 모든 곡에 똑같이 생기는 문제라, 넘기지 않고 멈춘 뒤 안내함.
+        if (![2, 5, 100, 101, 150].includes(e.data)) {
+          console.error(`[BGM] 재생 오류 (코드 ${e.data}) — 모든 곡에 공통으로 생기는 문제라 자동 넘김을 멈춥니다.`);
+          $('#bgmTitle').textContent = e.data === 153 ? '유튜브가 이 열기 방식을 막고 있어요 (오류 153)' : `재생 오류 (코드 ${e.data})`;
+          return;
+        }
         bgmSkipAttempts++;
         console.warn(`[BGM] 재생 불가 트랙 (에러 코드 ${e.data}) — 넘긴 횟수: ${bgmSkipAttempts}`);
         if (bgmSkipAttempts > bgmQueue.length + 2) {
@@ -842,6 +909,9 @@ window.onYouTubeIframeAPIReady = function () {
   });
 };
 function onBgmState(e) {
+  const S = YT.PlayerState;
+  if (e.data === S.PLAYING) $('#bgmPlayer').classList.add('playing');
+  else if (e.data === S.PAUSED || e.data === S.ENDED || e.data === S.CUED) $('#bgmPlayer').classList.remove('playing');
   if (e.data === YT.PlayerState.PLAYING) { $('#bgmToggle').innerHTML = ICON_PAUSE; $('#bgmToggle').title = '일시정지'; }
   else if (e.data === YT.PlayerState.PAUSED) { $('#bgmToggle').innerHTML = ICON_PLAY; $('#bgmToggle').title = '재생'; }
 }
@@ -865,7 +935,7 @@ $('#bgmVol').onclick = () => {
 (function makeBgmDraggable() {
   const box = $('#bgmPlayer');
   function place(x, y) {
-    const w = box.offsetWidth || 260, h = box.offsetHeight || 36;
+    const w = box.offsetWidth || 252, h = box.offsetHeight || 130;
     x = Math.max(6, Math.min(x, innerWidth - w - 6));
     y = Math.max(6, Math.min(y, innerHeight - h - 6));
     box.style.left = x + 'px'; box.style.top = y + 'px'; box.style.bottom = 'auto';
@@ -875,22 +945,75 @@ $('#bgmVol').onclick = () => {
 
   let dragging = false, sx = 0, sy = 0, ox = 0, oy = 0;
   box.addEventListener('pointerdown', e => {
-    if (e.target.closest('button,input')) return;
+    if (e.target.closest('button:not(.bgmOpen),input')) return;
+    box.dataset.moved = '';
     dragging = true; box.classList.add('dragging');
     box.setPointerCapture(e.pointerId);
     const r = box.getBoundingClientRect();
     sx = e.clientX; sy = e.clientY; ox = r.left; oy = r.top;
   });
-  box.addEventListener('pointermove', e => { if (dragging) place(ox + (e.clientX - sx), oy + (e.clientY - sy)); });
+  box.addEventListener('pointermove', e => {
+    if (!dragging) return;
+    if (Math.abs(e.clientX - sx) + Math.abs(e.clientY - sy) > 4) box.dataset.moved = '1';
+    place(ox + (e.clientX - sx), oy + (e.clientY - sy));
+  });
   function endDrag() {
     if (!dragging) return;
     dragging = false; box.classList.remove('dragging');
+    setTimeout(() => { box.dataset.moved = ''; }, 50);
     const r = box.getBoundingClientRect();
     localStorage.setItem(BGM_POS_KEY, JSON.stringify({ x: r.left, y: r.top }));
   }
   box.addEventListener('pointerup', endDrag);
   box.addEventListener('pointercancel', endDrag);
   addEventListener('resize', () => { const r = box.getBoundingClientRect(); place(r.left, r.top); });
+})();
+
+/* 제목 전광판: 제목이 잘릴 때만 왼쪽으로 끊김 없이 천천히 흘러감 */
+(function bgmMarquee() {
+  const wrap = document.querySelector('.bgmTitleWrap'), track = document.querySelector('.bgmTrack');
+  const txt = $('#bgmTitle'), clone = $('#bgmTitleClone');
+  const GAP = 28, SPEED = 32; // GAP: 반복되는 제목 사이 간격(px), SPEED: 초당 이동 거리(px)
+  function measure() {
+    clone.textContent = txt.textContent;
+    wrap.classList.remove('scroll');
+    const w = txt.offsetWidth;
+    if (w > wrap.clientWidth + 1) {
+      const dist = w + GAP;
+      track.style.setProperty('--dist', dist + 'px');
+      track.style.setProperty('--dur', (dist / SPEED).toFixed(1) + 's');
+      void track.offsetWidth;            // 애니메이션 처음부터 다시 시작
+      wrap.classList.add('scroll');
+    }
+  }
+  new MutationObserver(measure).observe(txt, { childList: true, characterData: true, subtree: true });
+  new ResizeObserver(measure).observe(wrap);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(measure);
+  measure();
+})();
+
+/* 음량 슬라이더: 흰색으로 채워진 부분 표시 */
+(function bgmVolumeFill() {
+  const rng = $('#bgmRange');
+  const setV = () => rng.style.setProperty('--v', rng.value + '%');
+  rng.addEventListener('input', setV);
+  setV();
+})();
+
+/* 플레이어 접기/펼치기 (상태 기억) */
+(function bgmFold() {
+  const box = $('#bgmPlayer'), MINI_KEY = 'space-archive-bgm-mini';
+  function setMini(mini, notify) {
+    box.classList.toggle('mini', mini);
+    try { localStorage.setItem(MINI_KEY, mini ? '1' : '0'); } catch (e) {}
+    if (notify) dispatchEvent(new Event('resize')); // 화면 밖으로 나가지 않게 위치 보정
+  }
+  $('#bgmFold').addEventListener('click', e => { e.stopPropagation(); setMini(true, true); });
+  box.addEventListener('click', () => {
+    if (box.classList.contains('mini') && box.dataset.moved !== '1') setMini(false, true);
+  });
+  let saved = null; try { saved = localStorage.getItem(MINI_KEY); } catch (e) {}
+  if (saved === '1') setMini(true, false);
 })();
 
 applySettings();
