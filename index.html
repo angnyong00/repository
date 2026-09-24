@@ -187,7 +187,8 @@ select.sel:focus{border-color:var(--accent)}
 .bgmRange::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:12px;height:12px;margin-top:1px;background:#fff;border:0;border-radius:50%!important;box-shadow:0 0 0 1px rgba(255,255,255,.4),0 1px 4px rgba(0,0,0,.4)}
 .bgmRange::-moz-range-track{height:14px;background:transparent}
 .bgmRange::-moz-range-thumb{width:12px;height:12px;background:#fff;border:0;border-radius:50%!important}
-#bgmHost{position:fixed;left:0;bottom:0;width:200px;height:200px;opacity:0;pointer-events:none;z-index:-1}
+#bgmHost{position:fixed;left:0;bottom:0;width:200px;height:200px;overflow:hidden;opacity:0;pointer-events:none;z-index:-1}
+#bgmHost iframe{position:absolute;left:0;top:0;width:200px;height:200px;border:0}
 
 /* 반짝이 트레일 */
 .sparkle{position:fixed;left:0;top:0;z-index:9;border-radius:50%;pointer-events:none;animation:sparkleFall .85s ease-out forwards}
@@ -230,7 +231,7 @@ select.sel:focus{border-color:var(--accent)}
     <input type="range" id="bgmRange" class="bgmRange" min="0" max="100" value="60" aria-label="볼륨">
   </div>
 </div>
-<div id="bgmHost"></div>
+<div id="bgmHost"><div id="bgmSlotA"></div><div id="bgmSlotB"></div></div>
 
 <div id="stars"><i></i><i></i><i></i></div>
 
@@ -825,6 +826,8 @@ const ICON_VOL = $('#bgmVol').innerHTML;
 const ICON_MUTE = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M17 9l4 6M21 9l-4 6"/></svg>';
 
 let bgmPlayer = null, bgmReady = false, bgmQueue = [], bgmIndex = 0, bgmSkipAttempts = 0;
+// 다음 곡을 미리 받아두는 대기용 플레이어 (다음 곡 버튼/자동 넘김 때 바로 교체해서 재생)
+let bgmStandby = null, sbPlayerReady = false, sbIdx = -1, sbLoading = false, sbWarm = false, sbTimer = 0, bgmMuted = false, bgmT0 = 0;
 
 (function loadYT() {
   const tag = document.createElement('script');
@@ -892,27 +895,74 @@ function cueBgmAt(i, autoplay) {
   bgmIndex = ((i % bgmQueue.length) + bgmQueue.length) % bgmQueue.length;
   const track = bgmQueue[bgmIndex];
   $('#bgmTitle').textContent = track.title;
-  autoplay ? bgmPlayer.loadVideoById(track.id) : bgmPlayer.cueVideoById(track.id);
+  if (autoplay && sbWarm && sbIdx === bgmIndex) {
+    // 미리 받아둔 곡이 바로 이 곡이면 두 플레이어를 맞바꿔서 즉시 재생
+    const old = bgmPlayer;
+    bgmPlayer = bgmStandby; bgmStandby = old;
+    sbWarm = false; sbLoading = false; sbIdx = -1;
+    try { old.stopVideo(); } catch (e) {}
+    bgmPlayer.setVolume(+$('#bgmRange').value);
+    if (bgmMuted) bgmPlayer.mute(); else bgmPlayer.unMute();
+    bgmPlayer.seekTo(0, true);
+    bgmPlayer.playVideo();
+    console.log('[BGM] 미리 받아둔 곡으로 즉시 전환');
+    return;
+  }
+  if (autoplay) { bgmT0 = performance.now(); bgmPlayer.loadVideoById(track.id); }
+  else bgmPlayer.cueVideoById(track.id);
 }
 
-window.onYouTubeIframeAPIReady = function () {
-  console.log('[BGM] YouTube API ready, creating player…');
-  bgmPlayer = new YT.Player('bgmHost', {
+// 지금 곡의 다음 곡을 대기 플레이어에 음소거로 미리 로드
+function preloadNext() {
+  if (!bgmReady || !sbPlayerReady || bgmQueue.length < 2) return;
+  const idx = (bgmIndex + 1) % bgmQueue.length;
+  if (sbIdx === idx) return;
+  sbIdx = idx; sbWarm = false; sbLoading = true;
+  try { bgmStandby.mute(); bgmStandby.loadVideoById(bgmQueue[idx].id); }
+  catch (e) { sbLoading = false; sbIdx = -1; }
+}
+
+function makeBgmYT(slot, isMain) {
+  return new YT.Player(slot, {
+    width: 200, height: 200,
     events: {
       onReady: async e => {
+        e.target.setVolume(+$('#bgmRange').value);
+        if (!isMain) {
+          sbPlayerReady = true;
+          console.log('[BGM] standby player ready');
+          if (bgmReady && bgmQueue.length && bgmPlayer.getPlayerState() === YT.PlayerState.PLAYING) preloadNext();
+          return;
+        }
         bgmReady = true;
         console.log('[BGM] player ready');
-        e.target.setVolume(+$('#bgmRange').value);
         bgmQueue = await fetchBgmQueue();
         if (bgmQueue.length) cueBgmAt(0, false);
         else $('#bgmTitle').textContent = '재생목록을 불러오지 못함';
       },
       onStateChange: e => {
-        if (e.data === YT.PlayerState.PLAYING) bgmSkipAttempts = 0;
+        if (e.target !== bgmPlayer) {
+          // 대기 플레이어: 미리 로드가 시작되면 일시정지해서 버퍼만 채워둠
+          if (e.data === YT.PlayerState.PLAYING && sbLoading) {
+            sbLoading = false; sbWarm = true; e.target.pauseVideo();
+            console.log('[BGM] 다음 곡 미리 로드 완료');
+          }
+          return;
+        }
+        if (e.data === YT.PlayerState.PLAYING) {
+          bgmSkipAttempts = 0;
+          if (bgmT0) { console.log(`[BGM] 재생 시작까지 ${Math.round(performance.now() - bgmT0)}ms`); bgmT0 = 0; }
+          clearTimeout(sbTimer); sbTimer = setTimeout(preloadNext, 2000);
+        }
         if (e.data === YT.PlayerState.ENDED) cueBgmAt(bgmIndex + 1, true);
         onBgmState(e);
       },
       onError: e => {
+        if (e.target !== bgmPlayer) {
+          sbLoading = false; sbWarm = false; sbIdx = -1;
+          console.warn(`[BGM] 다음 곡 미리 로드 실패 (코드 ${e.data})`);
+          return;
+        }
         // 100,101,150 등 = 이 곡만 재생 불가/임베드 금지 → 다음 곡으로 넘어감.
         // 153 같은 그 외 오류는 모든 곡에 똑같이 생기는 문제라, 넘기지 않고 멈춘 뒤 안내함.
         if (![2, 5, 100, 101, 150].includes(e.data)) {
@@ -931,6 +981,12 @@ window.onYouTubeIframeAPIReady = function () {
       }
     }
   });
+}
+
+window.onYouTubeIframeAPIReady = function () {
+  console.log('[BGM] YouTube API ready, creating players…');
+  bgmPlayer = makeBgmYT('bgmSlotA', true);
+  bgmStandby = makeBgmYT('bgmSlotB', false);
 };
 function onBgmState(e) {
   const S = YT.PlayerState;
@@ -948,10 +1004,11 @@ $('#bgmToggle').onclick = () => {
 };
 $('#bgmPrev').onclick = () => cueBgmAt(bgmIndex - 1, true);
 $('#bgmNext').onclick = () => cueBgmAt(bgmIndex + 1, true);
-$('#bgmRange').oninput = e => { if (bgmReady) bgmPlayer.setVolume(+e.target.value); };
+$('#bgmRange').oninput = e => { if (bgmReady) { bgmPlayer.setVolume(+e.target.value); if (sbPlayerReady) bgmStandby.setVolume(+e.target.value); } };
 $('#bgmVol').onclick = () => {
   if (!bgmReady) return;
-  if (bgmPlayer.isMuted()) { bgmPlayer.unMute(); $('#bgmVol').innerHTML = ICON_VOL; $('#bgmVol').title = '음소거'; }
+  bgmMuted = !bgmMuted;
+  if (!bgmMuted) { bgmPlayer.unMute(); $('#bgmVol').innerHTML = ICON_VOL; $('#bgmVol').title = '음소거'; }
   else { bgmPlayer.mute(); $('#bgmVol').innerHTML = ICON_MUTE; $('#bgmVol').title = '음소거 해제'; }
 };
 
