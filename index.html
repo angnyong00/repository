@@ -231,7 +231,7 @@ select.sel:focus{border-color:var(--accent)}
     <input type="range" id="bgmRange" class="bgmRange" min="0" max="100" value="60" aria-label="볼륨">
   </div>
 </div>
-<div id="bgmHost"><div id="bgmSlotA"></div><div id="bgmSlotB"></div></div>
+<div id="bgmHost"><div id="bgmSlotA"></div><div id="bgmSlotB"></div><div id="bgmSlotC"></div></div>
 
 <div id="stars"><i></i><i></i><i></i></div>
 
@@ -826,8 +826,9 @@ const ICON_VOL = $('#bgmVol').innerHTML;
 const ICON_MUTE = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M17 9l4 6M21 9l-4 6"/></svg>';
 
 let bgmPlayer = null, bgmReady = false, bgmQueue = [], bgmIndex = 0, bgmSkipAttempts = 0;
-// 다음 곡을 미리 받아두는 대기용 플레이어 (다음 곡 버튼/자동 넘김 때 바로 교체해서 재생)
-let bgmStandby = null, sbPlayerReady = false, sbIdx = -1, sbLoading = false, sbWarm = false, sbTimer = 0, bgmMuted = false, bgmT0 = 0;
+// 플레이어 3개: 이전/현재/다음 곡을 각각 미리 준비(cue)해 두고, 곡을 넘길 때 바로 교체해서 재생
+let bgmSlots = [], bgmAct = null, bgmMuted = false, bgmT0 = 0, bgmTag = '', bgmWinOn = false, bgmEnsureTimer = 0;
+const bgmBad = new Set();
 
 (function loadYT() {
   const tag = document.createElement('script');
@@ -890,50 +891,59 @@ async function fetchBgmQueue() {
   }
 }
 
+const slotOf = p => bgmSlots.find(x => x.p === p);
+const bgmWrap = i => ((i % bgmQueue.length) + bgmQueue.length) % bgmQueue.length;
+
+// 이전/현재/다음 곡이 각각 다른 플레이어에 준비돼 있게 유지
+function ensureWindow() {
+  if (!bgmWinOn || !bgmReady || bgmQueue.length < 2 || !bgmAct) return;
+  const need = [...new Set([bgmIndex, bgmWrap(bgmIndex + 1), bgmWrap(bgmIndex - 1)])];
+  for (const idx of need) {
+    if (bgmBad.has(idx) || bgmSlots.some(x => x.idx === idx)) continue;
+    const free = bgmSlots.find(x => x.ready && x !== bgmAct && !need.includes(x.idx));
+    if (!free) continue;
+    free.idx = idx; free.warm = false; free.want = false; free.t0 = performance.now();
+    try { free.p.mute(); free.p.cueVideoById(bgmQueue[idx].id); } catch (e) { free.idx = -1; }
+  }
+}
+function scheduleEnsure() { clearTimeout(bgmEnsureTimer); bgmEnsureTimer = setTimeout(ensureWindow, 800); }
+
+// 준비된 플레이어로 교체해서 즉시 재생
+function activate(hit) {
+  const old = bgmAct;
+  if (old !== hit) { try { old.p.pauseVideo(); old.p.mute(); } catch (e) {} old.warm = old.idx >= 0; }
+  bgmSlots.forEach(x => { x.want = false; });
+  bgmAct = hit; bgmPlayer = hit.p;
+  hit.p.setVolume(+$('#bgmRange').value);
+  if (bgmMuted) hit.p.mute(); else hit.p.unMute();
+  hit.p.seekTo(0, true); hit.p.playVideo();
+  bgmT0 = performance.now(); bgmTag = '미리 준비된 곡';
+  console.log('[BGM] 미리 준비된 곡으로 즉시 전환');
+}
+
 function cueBgmAt(i, autoplay) {
   if (!bgmReady || !bgmQueue.length) return;
-  bgmIndex = ((i % bgmQueue.length) + bgmQueue.length) % bgmQueue.length;
+  bgmIndex = bgmWrap(i);
   const track = bgmQueue[bgmIndex];
   $('#bgmTitle').textContent = track.title;
-  if (autoplay && sbWarm && sbIdx === bgmIndex) {
-    // 미리 받아둔 곡이 바로 이 곡이면 두 플레이어를 맞바꿔서 즉시 재생
-    const old = bgmPlayer;
-    bgmPlayer = bgmStandby; bgmStandby = old;
-    sbWarm = false; sbLoading = false; sbIdx = -1;
-    try { old.stopVideo(); } catch (e) {}
-    bgmPlayer.setVolume(+$('#bgmRange').value);
-    if (bgmMuted) bgmPlayer.mute(); else bgmPlayer.unMute();
-    bgmPlayer.seekTo(0, true);
-    bgmPlayer.playVideo();
-    console.log('[BGM] 미리 받아둔 곡으로 즉시 전환');
-    return;
-  }
-  if (autoplay) { bgmT0 = performance.now(); bgmPlayer.loadVideoById(track.id); }
+  bgmSlots.forEach(x => { x.want = false; });
+  const other = autoplay && bgmSlots.find(x => x !== bgmAct && x.idx === bgmIndex);
+  if (other && other.warm) { activate(other); return; }
+  if (other) { other.want = true; console.log('[BGM] 준비 중인 곡이 끝나면 바로 재생'); return; }
+  bgmAct.idx = bgmIndex; bgmAct.warm = false;
+  if (autoplay) { bgmT0 = performance.now(); bgmTag = '새로 로드'; bgmPlayer.loadVideoById(track.id); }
   else bgmPlayer.cueVideoById(track.id);
 }
 
-// 지금 곡의 다음 곡을 대기 플레이어에 음소거로 미리 로드
-function preloadNext() {
-  if (!bgmReady || !sbPlayerReady || bgmQueue.length < 2) return;
-  const idx = (bgmIndex + 1) % bgmQueue.length;
-  if (sbIdx === idx) return;
-  sbIdx = idx; sbWarm = false; sbLoading = true;
-  try { bgmStandby.mute(); bgmStandby.loadVideoById(bgmQueue[idx].id); }
-  catch (e) { sbLoading = false; sbIdx = -1; }
-}
-
-function makeBgmYT(slot, isMain) {
-  return new YT.Player(slot, {
+function makeBgmYT(slotId) {
+  return new YT.Player(slotId, {
     width: 200, height: 200,
     events: {
       onReady: async e => {
+        const slot = slotOf(e.target);
+        slot.ready = true;
         e.target.setVolume(+$('#bgmRange').value);
-        if (!isMain) {
-          sbPlayerReady = true;
-          console.log('[BGM] standby player ready');
-          if (bgmReady && bgmQueue.length && bgmPlayer.getPlayerState() === YT.PlayerState.PLAYING) preloadNext();
-          return;
-        }
+        if (slot !== bgmAct) { e.target.mute(); scheduleEnsure(); return; }
         bgmReady = true;
         console.log('[BGM] player ready');
         bgmQueue = await fetchBgmQueue();
@@ -941,26 +951,31 @@ function makeBgmYT(slot, isMain) {
         else $('#bgmTitle').textContent = '재생목록을 불러오지 못함';
       },
       onStateChange: e => {
-        if (e.target !== bgmPlayer) {
-          // 대기 플레이어: 미리 로드가 시작되면 일시정지해서 버퍼만 채워둠
-          if (e.data === YT.PlayerState.PLAYING && sbLoading) {
-            sbLoading = false; sbWarm = true; e.target.pauseVideo();
-            console.log('[BGM] 다음 곡 미리 로드 완료');
+        const slot = slotOf(e.target);
+        if (slot !== bgmAct) {
+          if (e.data === YT.PlayerState.CUED && slot.idx >= 0) {
+            slot.warm = true;
+            console.log(`[BGM] 미리 준비 완료 (${slot.idx + 1}번째 곡, ${Math.round(performance.now() - (slot.t0 || performance.now()))}ms)`);
+            if (slot.want && slot.idx === bgmIndex) activate(slot);
           }
           return;
         }
+        if (e.data === YT.PlayerState.CUED || e.data === YT.PlayerState.PLAYING) { bgmWinOn = true; scheduleEnsure(); }
         if (e.data === YT.PlayerState.PLAYING) {
           bgmSkipAttempts = 0;
-          if (bgmT0) { console.log(`[BGM] 재생 시작까지 ${Math.round(performance.now() - bgmT0)}ms`); bgmT0 = 0; }
-          clearTimeout(sbTimer); sbTimer = setTimeout(preloadNext, 2000);
+          if (bgmT0) { console.log(`[BGM] 재생 시작까지 ${Math.round(performance.now() - bgmT0)}ms (${bgmTag})`); bgmT0 = 0; }
         }
         if (e.data === YT.PlayerState.ENDED) cueBgmAt(bgmIndex + 1, true);
         onBgmState(e);
       },
       onError: e => {
-        if (e.target !== bgmPlayer) {
-          sbLoading = false; sbWarm = false; sbIdx = -1;
-          console.warn(`[BGM] 다음 곡 미리 로드 실패 (코드 ${e.data})`);
+        const slot = slotOf(e.target);
+        if (slot !== bgmAct) {
+          console.warn(`[BGM] 미리 준비 실패 (코드 ${e.data})`);
+          if (slot.idx >= 0) bgmBad.add(slot.idx);
+          const wanted = slot.want;
+          slot.idx = -1; slot.warm = false; slot.want = false;
+          if (wanted) cueBgmAt(bgmIndex + 1, true);
           return;
         }
         // 100,101,150 등 = 이 곡만 재생 불가/임베드 금지 → 다음 곡으로 넘어감.
@@ -985,8 +1000,12 @@ function makeBgmYT(slot, isMain) {
 
 window.onYouTubeIframeAPIReady = function () {
   console.log('[BGM] YouTube API ready, creating players…');
-  bgmPlayer = makeBgmYT('bgmSlotA', true);
-  bgmStandby = makeBgmYT('bgmSlotB', false);
+  ['bgmSlotA', 'bgmSlotB', 'bgmSlotC'].forEach(id => {
+    const slot = { p: null, ready: false, idx: -1, warm: false, want: false, t0: 0 };
+    bgmSlots.push(slot);
+    slot.p = makeBgmYT(id);
+  });
+  bgmAct = bgmSlots[0]; bgmPlayer = bgmAct.p;
 };
 function onBgmState(e) {
   const S = YT.PlayerState;
@@ -1004,7 +1023,7 @@ $('#bgmToggle').onclick = () => {
 };
 $('#bgmPrev').onclick = () => cueBgmAt(bgmIndex - 1, true);
 $('#bgmNext').onclick = () => cueBgmAt(bgmIndex + 1, true);
-$('#bgmRange').oninput = e => { if (bgmReady) { bgmPlayer.setVolume(+e.target.value); if (sbPlayerReady) bgmStandby.setVolume(+e.target.value); } };
+$('#bgmRange').oninput = e => { bgmSlots.forEach(x => { if (x.ready) x.p.setVolume(+e.target.value); }); };
 $('#bgmVol').onclick = () => {
   if (!bgmReady) return;
   bgmMuted = !bgmMuted;
