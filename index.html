@@ -69,6 +69,14 @@ ul{list-style:none;margin:0 0 10px;padding:0}
 .tb:hover{color:#fff;text-decoration:underline;text-underline-offset:4px;text-decoration-color:var(--accent)}
 .tb:focus-visible,.ic:focus-visible,.acts button:focus-visible{outline:1px solid var(--accent);outline-offset:2px}
 aside .tb{margin:6px 0 0 12px}
+.searchBox{margin-bottom:10px}
+#searchInput{width:100%;background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--fg);font:13px var(--font);padding:8px 10px;border-radius:10px!important;outline:none;transition:border-color .2s}
+#searchInput:focus{border-color:var(--accent)}
+#searchInput::placeholder{color:var(--mute)}
+.srItem{align-items:flex-start!important;padding:10px 12px}
+.srMeta{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.srSnippet{font-size:12px;margin-top:4px;color:var(--mute);white-space:normal;line-height:1.5}
+.srSnippet mark{background:rgba(185,198,255,.35);color:#fff;padding:0 2px;border-radius:3px!important}
 
 /* 본문 */
 .bar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,.1)}
@@ -265,6 +273,7 @@ select.sel:focus{border-color:var(--accent)}
   <div id="banner" class="glass-box"></div>
   <div class="layout">
     <aside class="glass-box">
+      <div class="searchBox"><input type="text" id="searchInput" placeholder="게시물 검색…" aria-label="게시물 검색"></div>
       <ul id="cats"></ul>
       <button type="button" class="tb" id="addCat">카테고리 추가</button>
     </aside>
@@ -558,6 +567,8 @@ const acts = (onEdit, onDel, label) => el('span', { class: 'acts' },
 /* 렌더링 */
 function render() {
   $('#banner').style.backgroundImage = database.config.bannerImage ? `url(${JSON.stringify(database.config.bannerImage)})` : 'none';
+  const si = $('#searchInput');
+  if (si && st.mode !== 'search' && document.activeElement !== si) si.value = '';
   renderSide(); renderMain();
 }
 
@@ -565,7 +576,7 @@ function renderSide() {
   const ul = $('#cats'); ul.replaceChildren();
   database.categories.forEach(c => {
     const nm = el('span', { class: 'nm', text: c.name });
-    ul.append(el('li', { class: 'item hov' + (c.id === st.cat ? ' on' : ''), onclick: () => { st = { cat: c.id, post: null, mode: 'list' }; render(); } },
+    ul.append(el('li', { class: 'item hov' + (c.id === st.cat && st.mode !== 'search' ? ' on' : ''), onclick: () => { st = { cat: c.id, post: null, mode: 'list' }; render(); } },
       nm,
       acts(() => inline(nm, c.name, v => { c.name = v; save(); }), () => {
         if (!confirm(`'${c.name}' 카테고리와 모든 게시물을 삭제할까요?`)) return;
@@ -577,8 +588,51 @@ function renderSide() {
   });
 }
 
+function stripHtml(html) {
+  const t = document.createElement('template');
+  t.innerHTML = html || '';
+  return (t.content.textContent || '').replace(/\s+/g, ' ').trim();
+}
+function buildSnippet(text, q) {
+  const frag = document.createElement('span');
+  const lower = text.toLowerCase(), idx = q ? lower.indexOf(q.toLowerCase()) : -1;
+  if (idx === -1) { frag.append(text.slice(0, 120) + (text.length > 120 ? '…' : '')); return frag; }
+  const start = Math.max(0, idx - 30), end = Math.min(text.length, idx + q.length + 60);
+  if (start > 0) frag.append('…');
+  frag.append(text.slice(start, idx));
+  frag.append(el('mark', { text: text.slice(idx, idx + q.length) }));
+  frag.append(text.slice(idx + q.length, end));
+  if (end < text.length) frag.append('…');
+  return frag;
+}
+function searchView(m, q) {
+  m.append(el('div', { class: 'bar' }, el('div', { class: 'hd', text: `"${q}" 검색 결과` }),
+    el('button', { type: 'button', class: 'tb', text: '검색 지우기', onclick: () => {
+      $('#searchInput').value = ''; st = { cat: st.cat || database.categories[0]?.id || null, post: null, mode: 'list' }; render();
+    } })));
+  const ql = q.toLowerCase();
+  const results = [];
+  database.categories.forEach(c => c.posts.forEach(p => {
+    const plain = stripHtml(p.content);
+    if (p.title.toLowerCase().includes(ql) || plain.toLowerCase().includes(ql)) results.push({ c, p, plain });
+  }));
+  if (!results.length) { m.append(el('p', { class: 'mute', text: '일치하는 게시물이 없습니다.' })); return; }
+  results.forEach(({ c, p, plain }) => {
+    const titleRow = el('div', { class: 'srMeta' },
+      el('span', { class: 'nm', text: p.title }),
+      el('span', { class: 'mute', style: 'font-size:11px', text: c.name }));
+    const snippetWrap = el('div', { class: 'srSnippet' });
+    snippetWrap.append(buildSnippet(plain, q));
+    const left = el('div', { style: 'flex:1;min-width:0' }, titleRow, snippetWrap);
+    m.append(el('div', { class: 'item srItem', onclick: () => {
+      $('#searchInput').value = ''; st = { cat: c.id, post: p.id, mode: 'read' }; render();
+    } }, left, el('span', { class: 'date', text: fmt(p.date) })));
+  });
+}
+
 function renderMain() {
   const m = $('#main'); m.replaceChildren();
+  if (st.mode === 'search' && st.query) return searchView(m, st.query);
   const c = cat();
   if (!c) { m.append(el('p', { class: 'mute', text: '카테고리를 추가하면 게시물을 작성할 수 있습니다.' })); return; }
   if (st.mode === 'edit') return editor(m, c);
@@ -890,6 +944,23 @@ $('#addCat').onclick = () => {
   $('#cats').append(el('li', { class: 'item' }, nm));
   inline(nm, '', v => { const c = { id: uid(), name: v, posts: [] }; database.categories.push(c); save(); st = { cat: c.id, post: null, mode: 'list' }; });
 };
+
+let searchDebounce = 0;
+$('#searchInput').addEventListener('input', e => {
+  clearTimeout(searchDebounce);
+  const q = e.target.value.trim();
+  searchDebounce = setTimeout(() => {
+    if (q) { st = { cat: st.cat, post: null, mode: 'search', query: q }; renderMain(); renderSide(); }
+    else { st = { cat: st.cat || database.categories[0]?.id || null, post: null, mode: 'list' }; render(); }
+  }, 150);
+});
+$('#searchInput').addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  e.target.value = '';
+  e.target.blur();
+  st = { cat: st.cat || database.categories[0]?.id || null, post: null, mode: 'list' };
+  render();
+});
 
 /* ===== 설정: 폰트 / 배경 / 커서 / 반짝이 / 백업 ===== */
 function applyFont(key) { document.documentElement.style.setProperty('--font', FONTS[key] || FONTS.noto); }
