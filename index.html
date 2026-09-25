@@ -75,8 +75,8 @@ aside .tb{margin:6px 0 0 12px}
 .bar .hd{margin:0;font-size:1.15rem;font-weight:500;letter-spacing:.04em}
 .mute,.date{color:var(--mute)}
 .date{font-size:12px;white-space:nowrap}
-.ptitle{font-size:1.6rem;font-weight:500;line-height:1.4;margin:.2em 0 .1em}
-.rich{max-width:72ch}
+.ptitle{font-size:1.6rem;font-weight:500;line-height:1.4;margin:.2em 0 .1em;color:#f3f3f6}
+.rich{max-width:72ch;color:#f3f3f6}
 .rich p{margin:.7em 0}
 .rich blockquote{margin:1em 0;padding:.1em 1em;border-left:2px solid var(--accent);color:#cfcfd6}
 .rich a{color:var(--accent);text-decoration:underline}
@@ -84,7 +84,7 @@ aside .tb{margin:6px 0 0 12px}
 .rich ul{list-style:disc}
 
 /* 에디터 */
-.ttl{width:100%;background:transparent;border:0;border-bottom:1px solid var(--line);color:inherit;font:500 1.4rem var(--font);padding:6px 0 10px;outline:none;transition:border-color .2s,box-shadow .2s}
+.ttl{width:100%;background:transparent;border:0;border-bottom:1px solid var(--line);color:#f3f3f6;font:500 1.4rem var(--font);padding:6px 0 10px;outline:none;transition:border-color .2s,box-shadow .2s}
 .ttl:focus{border-color:var(--accent);box-shadow:0 8px 14px -12px var(--accent-glow)}
 .tools{display:flex;flex-wrap:wrap;gap:2px;margin:14px 0 8px}
 .ic{background:none;border:0;width:32px;height:30px;display:grid;place-items:center;color:var(--mute);cursor:pointer;border-radius:8px;transition:color .2s,background .2s}
@@ -132,6 +132,32 @@ select.sel:focus{border-color:var(--accent)}
 
 /* GIF 커서 팔로워 */
 #cursorFollow{position:fixed;left:0;top:0;z-index:9999;max-width:40px;max-height:40px;width:auto;height:auto;pointer-events:none;display:none;transform:translate(-4px,-4px)}
+
+/* 게시물 에디터: 선택한 글자의 색상/크기 팝오버 */
+#colorMenu{position:fixed;z-index:30;display:none;width:190px;background:var(--glass-strong);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid var(--line);border-radius:14px!important;padding:12px;box-shadow:0 20px 50px -20px rgba(0,0,0,.7)}
+#colorMenu.open{display:block}
+.cmLbl{display:block;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);margin:0 0 6px}
+.cmGrid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:10px}
+.cmSwatch{width:22px;height:22px;border-radius:50%!important;border:1px solid rgba(255,255,255,.35);cursor:pointer;padding:0;transition:transform .15s}
+.cmSwatch:hover{transform:scale(1.18)}
+.cmRow{display:flex;gap:6px;border-top:1px solid rgba(255,255,255,.12);padding-top:10px;margin-bottom:2px}
+.cmBtn{flex:1;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--fg);font-size:11px;padding:6px 4px;border-radius:8px!important;cursor:pointer;text-align:center}
+.cmBtn:hover{background:rgba(255,255,255,.14)}
+.cmSizes{display:flex;align-items:flex-end;justify-content:space-between;gap:3px;border-top:1px solid rgba(255,255,255,.12);margin-top:10px;padding-top:10px}
+.cmSize{flex:1;background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--fg);border-radius:8px!important;cursor:pointer;line-height:1;padding:4px 0 3px}
+.cmSize:hover{background:rgba(255,255,255,.14)}
+.cmSize.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent-glow)}
+.cmWheelWrap{position:relative;width:130px;height:130px;margin:2px auto 10px;touch-action:none}
+#cmWheel{border-radius:50%!important;display:block;cursor:crosshair}
+#cmWheelDot{position:absolute;width:12px;height:12px;margin:-6px 0 0 -6px;border:2px solid #fff;border-radius:50%!important;box-shadow:0 0 4px rgba(0,0,0,.7);pointer-events:none}
+.cmRange{-webkit-appearance:none;appearance:none;width:100%;height:14px;margin:0 0 10px;cursor:pointer;outline:none;background:linear-gradient(90deg,#000,#fff);border-radius:7px!important}
+.cmRange::-webkit-slider-runnable-track{height:14px;border-radius:7px!important}
+.cmRange::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:14px;height:14px;margin-top:0;background:#fff;border:2px solid rgba(0,0,0,.45);border-radius:50%!important;box-shadow:0 1px 4px rgba(0,0,0,.5)}
+.cmRange::-moz-range-thumb{width:14px;height:14px;background:#fff;border:2px solid rgba(0,0,0,.45);border-radius:50%!important}
+.cmHexRow{display:flex;align-items:center;gap:6px;margin-bottom:10px}
+.cmSwPreview{width:26px;height:26px;flex:0 0 auto;border-radius:50%!important;border:1px solid rgba(255,255,255,.35)}
+.cmHexRow input[type=text]{flex:1;min-width:0;background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--fg);font:12px/1.4 var(--font);padding:6px 8px;border-radius:8px!important;outline:none}
+.cmHexRow input[type=text]:focus{border-color:var(--accent)}
 
 /* BGM 미니 플레이어 (카세트 카드 · 반투명 화이트 글래스) */
 #bgmPlayer{position:fixed;left:18px;bottom:64px;z-index:15;width:min(252px,88vw);display:flex;flex-direction:column;align-items:stretch;gap:10px;padding:20px 14px 12px;cursor:grab;user-select:none;touch-action:none;
@@ -260,6 +286,25 @@ select.sel:focus{border-color:var(--accent)}
   </svg>
 </button>
 
+<div id="colorMenu">
+  <span class="cmLbl">색상</span>
+  <div class="cmGrid" id="cmGrid"></div>
+  <div class="cmWheelWrap">
+    <canvas id="cmWheel" width="130" height="130"></canvas>
+    <div id="cmWheelDot"></div>
+  </div>
+  <input type="range" id="cmBright" class="cmRange" min="0" max="100" value="100">
+  <div class="cmHexRow">
+    <span class="cmSwPreview" id="cmPreview"></span>
+    <input type="text" id="cmHex" maxlength="7" placeholder="#ffffff">
+    <button type="button" class="cmBtn" id="cmApply">적용</button>
+  </div>
+  <div class="cmRow">
+    <button type="button" class="cmBtn" id="cmReset">기본색</button>
+  </div>
+  <div class="cmSizes" id="cmSizes"></div>
+</div>
+
 <div id="settingsOverlay">
   <div id="settingsModal" role="dialog" aria-modal="true" aria-label="설정">
     <div class="mHead">
@@ -278,6 +323,14 @@ select.sel:focus{border-color:var(--accent)}
         <option value="gowunDodum">Gowun Dodum (고운돋움)</option>
         <option value="gaegu">Gaegu (개구체)</option>
       </select>
+    </div>
+
+    <div class="setSec">
+      <span class="setLbl">텍스트 색상 (사이트 전체 · 게시물 내용 제외)</span>
+      <div class="urlRow">
+        <input type="color" id="siteTextColor" value="#f3f3f6" style="width:52px;height:38px;padding:2px;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px!important;cursor:pointer">
+        <button type="button" class="tb" id="siteTextColorReset">기본값</button>
+      </div>
     </div>
 
     <div class="setSec">
@@ -349,7 +402,7 @@ const CURSORS = {
 const CURSOR_KEYS = ['default', 'crosshair', 'star', 'gif'];
 
 let database = {
-  config: { siteTitle: "나만의 우주 아카이브", bannerImage: "", background: "", font: "noto", cursor: "default", cursorGif: "", sparkle: false },
+  config: { siteTitle: "나만의 우주 아카이브", bannerImage: "", background: "", font: "noto", cursor: "default", cursorGif: "", sparkle: false, textColor: "#f3f3f6" },
   categories: [
     { id: 'c1', name: '우주 일지', posts: [
       { id: 'p1', title: '첫 번째 항해', date: iso(21), content: '<p><b>환영합니다</b></p><p>이곳은 나만의 우주 아카이브입니다. 기록하고 싶은 생각과 관측을 별처럼 하나씩 남겨보세요.</p><blockquote>천천히, 그러나 멈추지 않고.</blockquote>' },
@@ -376,6 +429,7 @@ const norm = d => {
   d.config.cursor = CURSOR_KEYS.includes(d.config.cursor) ? d.config.cursor : 'default';
   d.config.cursorGif = d.config.cursorGif || '';
   d.config.sparkle = !!d.config.sparkle;
+  d.config.textColor = /^#[0-9a-fA-F]{6}$/.test(d.config.textColor) ? d.config.textColor : '#f3f3f6';
   return d;
 };
 try { database = norm(JSON.parse(localStorage.getItem(KEY))) || database; } catch (e) {}
@@ -562,6 +616,11 @@ const TB = [
   ['bold', '굵게', '<path d="M7 5h6a3.5 3.5 0 010 7H7zM7 12h7a3.5 3.5 0 010 7H7z"/>'],
   ['italic', '기울임', '<path d="M19 4h-9M14 20H5M15 4L9 20"/>'],
   ['underline', '밑줄', '<path d="M7 4v7a5 5 0 0010 0V4M5 20h14"/>'],
+  ['justifyLeft', '왼쪽 정렬', '<path d="M4 6h16M4 12h10M4 18h13"/>'],
+  ['justifyCenter', '가운데 정렬', '<path d="M4 6h16M8 12h8M6 18h12"/>'],
+  ['justifyRight', '오른쪽 정렬', '<path d="M4 6h16M10 12h10M7 18h13"/>'],
+  ['color', '글자 색상', '<path d="M12 3c4 4 6 7.2 6 10a6 6 0 11-12 0c0-2.8 2-6 6-10z"/>'],
+  ['size', '글자 크기', '<path d="M4 7V5h13v2M7 5v14M5 19h4M17 12h4M19 12v7M17.5 19h3"/>'],
   ['insertUnorderedList', '글머리 기호', '<path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/>'],
   ['insertOrderedList', '번호 목록', '<path d="M10 6h10M10 12h10M10 18h10M4 4.5l1.5-1v5M3.5 14.5h3l-3 3.5h3"/>'],
   ['blockquote', '인용', '<path d="M5 8h5v5a4 4 0 01-4 4M14 8h5v5a4 4 0 01-4 4"/>'],
@@ -569,6 +628,180 @@ const TB = [
   ['image', '이미지 삽입', '<rect x="3" y="4" width="18" height="16"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="M21 15l-5-5L6 20"/>'],
   ['removeFormat', '서식 지우기', '<path d="M5 5h14M12 5v8M9 19h6M4 4l16 16"/>']
 ];
+
+/* 선택한 글자만 색상/크기를 바꾸는 팝오버 (드래그 후 우클릭, 또는 툴바 버튼) */
+let savedRange = null, colorMenuEd = null;
+const CM_COLORS = ['#ff6b6b','#ff9d42','#ffd93d','#8be06a','#4fd1c5','#5c9dff','#a06bff','#ff7bd0','#ffffff','#c9c9c9'];
+const CM_SIZES = [12, 14, 15, 18, 22, 28, 36]; // 15 = 기본 글자 크기
+
+function captureSelection(ed) {
+  const s = getSelection();
+  if (s.rangeCount) {
+    const r = s.getRangeAt(0);
+    if (!r.collapsed && ed.contains(r.commonAncestorContainer)) { savedRange = r.cloneRange(); return true; }
+  }
+  return false;
+}
+function restoreSelection() {
+  if (!savedRange) return;
+  const s = getSelection(); s.removeAllRanges(); s.addRange(savedRange);
+}
+function closeColorMenu() { $('#colorMenu').classList.remove('open'); colorMenuEd = null; savedRange = null; }
+function openColorMenu(x, y, ed) {
+  colorMenuEd = ed;
+  const menu = $('#colorMenu');
+  menu.classList.add('open');
+  cmRefreshUI();
+  const w = menu.offsetWidth || 190, h = menu.offsetHeight || 220;
+  menu.style.left = Math.max(8, Math.min(x, innerWidth - w - 8)) + 'px';
+  menu.style.top = Math.max(8, Math.min(y, innerHeight - h - 8)) + 'px';
+}
+function applySelectionColor(color) {
+  if (!colorMenuEd) return;
+  colorMenuEd.focus(); restoreSelection();
+  document.execCommand('styleWithCSS', false, true);
+  document.execCommand('foreColor', false, color);
+  closeColorMenu();
+}
+function applySelectionSize(px) {
+  if (!colorMenuEd) return;
+  const ed = colorMenuEd;
+  ed.focus(); restoreSelection();
+  document.execCommand('styleWithCSS', false, true);
+  document.execCommand('fontSize', false, '7'); // 자리표시용 임시 크기(7) — 아래에서 실제 px로 치환
+  ed.querySelectorAll('font[size="7"]').forEach(f => {
+    const span = document.createElement('span');
+    span.style.fontSize = px + 'px';
+    while (f.firstChild) span.appendChild(f.firstChild);
+    f.replaceWith(span);
+  });
+  closeColorMenu();
+}
+/* 색상환(휠) + 명도 슬라이더 + 헥스코드 입력 */
+function hsvToRgb(h, s, v) {
+  const c = v * s, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = v - c;
+  let r = 0, g = 0, b = 0;
+  if (h < 60) [r, g, b] = [c, x, 0];
+  else if (h < 120) [r, g, b] = [x, c, 0];
+  else if (h < 180) [r, g, b] = [0, c, x];
+  else if (h < 240) [r, g, b] = [0, x, c];
+  else if (h < 300) [r, g, b] = [x, 0, c];
+  else [r, g, b] = [c, 0, x];
+  return [Math.round((r + m) * 255), Math.round((g + m) * 255), Math.round((b + m) * 255)];
+}
+function rgbToHsv(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+  let h = 0;
+  if (d !== 0) {
+    if (max === r) h = 60 * (((g - b) / d) % 6);
+    else if (max === g) h = 60 * ((b - r) / d + 2);
+    else h = 60 * ((r - g) / d + 4);
+  }
+  if (h < 0) h += 360;
+  const s = max === 0 ? 0 : d / max;
+  return [h, s, max];
+}
+const hex2 = n => n.toString(16).padStart(2, '0');
+function rgbToHex(r, g, b) { return '#' + hex2(r) + hex2(g) + hex2(b); }
+function hexToRgb(hex) {
+  const m = /^#([0-9a-f]{6})$/i.exec(hex);
+  if (!m) return null;
+  const n = parseInt(m[1], 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+let cmH = 0, cmS = 0, cmV = 1;
+function cmCurrentHex() { const [r, g, b] = hsvToRgb(cmH, cmS, cmV); return rgbToHex(r, g, b); }
+function cmRefreshUI() {
+  const wrap = $('.cmWheelWrap'), R = wrap.clientWidth / 2 - 3;
+  const cx = wrap.clientWidth / 2, cy = wrap.clientHeight / 2;
+  const rad = cmS * R, ang = cmH * Math.PI / 180;
+  const dot = $('#cmWheelDot');
+  dot.style.left = (cx + rad * Math.cos(ang)) + 'px';
+  dot.style.top = (cy + rad * Math.sin(ang)) + 'px';
+  const hex = cmCurrentHex();
+  $('#cmPreview').style.background = hex;
+  $('#cmHex').value = hex;
+}
+function drawColorWheel() {
+  const canvas = $('#cmWheel'), ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height, cx = W / 2, cy = H / 2, R = W / 2 - 2;
+  const img = ctx.createImageData(W, H);
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const dx = x - cx, dy = y - cy, dist = Math.sqrt(dx * dx + dy * dy);
+      const idx = (y * W + x) * 4;
+      if (dist <= R) {
+        let ang = Math.atan2(dy, dx) * 180 / Math.PI; if (ang < 0) ang += 360;
+        const [r, g, b] = hsvToRgb(ang, Math.min(dist / R, 1), 1);
+        img.data[idx] = r; img.data[idx + 1] = g; img.data[idx + 2] = b; img.data[idx + 3] = 255;
+      }
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+}
+function pickWheelAt(clientX, clientY) {
+  const rect = $('#cmWheel').getBoundingClientRect();
+  const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
+  let dx = clientX - cx, dy = clientY - cy, dist = Math.sqrt(dx * dx + dy * dy);
+  const R = rect.width / 2 - 2;
+  if (dist > R) { const k = R / (dist || 1); dx *= k; dy *= k; dist = R; }
+  let ang = Math.atan2(dy, dx) * 180 / Math.PI; if (ang < 0) ang += 360;
+  cmH = ang; cmS = R ? dist / R : 0;
+  cmRefreshUI();
+}
+(function initColorWheel() {
+  drawColorWheel();
+  cmRefreshUI();
+  const wrap = $('.cmWheelWrap');
+  let dragging = false;
+  wrap.addEventListener('pointerdown', e => { dragging = true; wrap.setPointerCapture(e.pointerId); pickWheelAt(e.clientX, e.clientY); });
+  wrap.addEventListener('pointermove', e => { if (dragging) pickWheelAt(e.clientX, e.clientY); });
+  wrap.addEventListener('pointerup', () => { dragging = false; });
+  wrap.addEventListener('pointercancel', () => { dragging = false; });
+})();
+$('#cmBright').oninput = e => { cmV = +e.target.value / 100; cmRefreshUI(); };
+$('#cmHex').addEventListener('input', e => {
+  let v = e.target.value.trim();
+  if (v && !v.startsWith('#')) v = '#' + v;
+  const rgb = hexToRgb(v);
+  if (rgb) {
+    const [h, s, vv] = rgbToHsv(...rgb);
+    cmH = h; cmS = s; cmV = vv;
+    $('#cmBright').value = Math.round(vv * 100);
+    cmRefreshUI();
+  }
+});
+$('#cmHex').addEventListener('keydown', e => { if (e.key === 'Enter') $('#cmApply').click(); });
+$('#cmApply').onclick = () => {
+  const hex = $('#cmHex').value.trim();
+  if (hexToRgb(hex.startsWith('#') ? hex : '#' + hex)) applySelectionColor(hex.startsWith('#') ? hex : '#' + hex);
+  else alert('올바른 색상 코드를 입력하세요. 예: #ff6b6b');
+};
+
+(function buildColorMenu() {
+  const grid = $('#cmGrid');
+  CM_COLORS.forEach(c => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'cmSwatch'; b.title = c; b.style.background = c;
+    b.onclick = () => applySelectionColor(c);
+    grid.append(b);
+  });
+  const sizes = $('#cmSizes');
+  CM_SIZES.forEach(px => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'cmSize' + (px === 15 ? ' on' : '');
+    b.title = px === 15 ? '기본 크기' : (px + 'px');
+    b.style.fontSize = Math.min(px, 20) + 'px';
+    b.textContent = '가';
+    b.onclick = () => applySelectionSize(px);
+    sizes.append(b);
+  });
+})();
+$('#cmReset').onclick = () => applySelectionColor('inherit');
+document.addEventListener('click', e => { if (!e.target.closest('#colorMenu') && !e.target.closest('.ic')) closeColorMenu(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeColorMenu(); });
 
 function run(cmd, ed) {
   ed.focus();
@@ -611,17 +844,35 @@ function editor(m, c) {
   const ed = el('div', { class: 'editor rich', contenteditable: 'true', 'data-ph': '내용을 입력하세요.' });
   ed.innerHTML = p ? clean(p.content) : '';
   resolveImages(ed);
+  ed.addEventListener('contextmenu', e => {
+    if (captureSelection(ed)) { e.preventDefault(); openColorMenu(e.clientX, e.clientY, ed); }
+  });
   const tools = el('div', { class: 'tools' });
   TB.forEach(([cmd, label, d]) => {
-    const b = el('button', { type: 'button', class: 'ic', title: label, 'aria-label': label, onmousedown: e => e.preventDefault(), onclick: () => run(cmd, ed) });
+    const b = el('button', { type: 'button', class: 'ic', title: label, 'aria-label': label, onmousedown: e => e.preventDefault(), onclick: e => {
+      if (cmd === 'color' || cmd === 'size') {
+        if (!captureSelection(ed)) { alert('먼저 색이나 크기를 바꿀 글자를 드래그해서 선택하세요.'); return; }
+        const r = e.currentTarget.getBoundingClientRect();
+        openColorMenu(r.left, r.bottom + 6, ed);
+        return;
+      }
+      run(cmd, ed);
+    } });
     b.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
     tools.append(b);
   });
   m.append(t, tools, ed, el('div', { class: 'foot' },
     el('button', { type: 'button', class: 'tb', text: '저장', onclick: () => {
       const data = { title: t.value.trim() || '제목 없음', content: clean(ed.innerHTML), date: new Date().toISOString() };
+      const prevSnapshot = p ? { ...p } : null;
       if (p) Object.assign(p, data); else { const n = { id: uid(), ...data }; c.posts.unshift(n); st.post = n.id; }
-      save(); st.mode = 'read'; render();
+      if (!save()) {
+        // 저장 공간이 가득 차서 실패한 경우, 방금 쓴 내용이 사라진 것처럼 보이지 않도록 되돌림
+        if (p && prevSnapshot) Object.assign(p, prevSnapshot); else c.posts.shift();
+        alert('저장 공간이 가득 차서 저장하지 못했습니다.\n설정 > 데이터 관리에서 백업을 받아두고, 배경/커서 이미지를 URL 방식으로 바꾸면 공간을 늘릴 수 있습니다.');
+        return;
+      }
+      st.mode = 'read'; render();
     } }),
     el('button', { type: 'button', class: 'tb', text: '취소', onclick: () => { st.mode = p ? 'read' : 'list'; render(); } })));
   document.execCommand('defaultParagraphSeparator', false, 'p');
@@ -702,18 +953,28 @@ function buildSwatches() {
 }
 buildSwatches();
 
+function applyTextColor(hex) { document.documentElement.style.setProperty('--fg', hex); }
+
 function applySettings() {
   applyFont(database.config.font);
   applyBg(database.config.background || BG_PRESETS[0].url);
   applyCursor(database.config.cursor);
+  applyTextColor(database.config.textColor);
   sparkleEnabled = !!database.config.sparkle;
   markActiveSwatch(database.config.background || BG_PRESETS[0].url);
 }
+
+$('#siteTextColor').oninput = e => { database.config.textColor = e.target.value; save(); applyTextColor(e.target.value); };
+$('#siteTextColorReset').onclick = () => {
+  database.config.textColor = '#f3f3f6'; save();
+  $('#siteTextColor').value = '#f3f3f6'; applyTextColor('#f3f3f6');
+};
 
 $('#settingsBtn').onclick = () => {
   $('#fontSel').value = database.config.font;
   $('#cursorSel').value = database.config.cursor;
   $('#sparkleToggle').checked = !!database.config.sparkle;
+  $('#siteTextColor').value = database.config.textColor;
   markActiveSwatch(database.config.background || BG_PRESETS[0].url);
   $('#settingsOverlay').classList.add('open');
 };
