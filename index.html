@@ -153,7 +153,7 @@ select.sel:focus{border-color:var(--accent)}
 #cursorFollow{position:fixed;left:0;top:0;z-index:9999;max-width:40px;max-height:40px;width:auto;height:auto;pointer-events:none;display:none;transform:translate(-4px,-4px)}
 
 /* 게시물 에디터: 선택한 글자의 색상/크기 팝오버 */
-#colorMenu{position:fixed;z-index:30;display:none;width:190px;background:var(--glass-strong);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid var(--line);border-radius:14px!important;padding:12px;box-shadow:0 20px 50px -20px rgba(0,0,0,.7)}
+#colorMenu{position:fixed;z-index:30;display:none;width:220px;background:var(--glass-strong);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid var(--line);border-radius:14px!important;padding:12px;box-shadow:0 20px 50px -20px rgba(0,0,0,.7)}
 #colorMenu.open{display:block}
 .cmLbl{display:block;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);margin:0 0 6px}
 .cmGrid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:10px}
@@ -162,10 +162,13 @@ select.sel:focus{border-color:var(--accent)}
 .cmRow{display:flex;gap:6px;border-top:1px solid rgba(255,255,255,.12);padding-top:10px;margin-bottom:2px}
 .cmBtn{flex:1;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--fg);font-size:11px;padding:6px 4px;border-radius:8px!important;cursor:pointer;text-align:center}
 .cmBtn:hover{background:rgba(255,255,255,.14)}
-.cmSizes{display:flex;align-items:flex-end;justify-content:space-between;gap:3px;border-top:1px solid rgba(255,255,255,.12);margin-top:10px;padding-top:10px}
-.cmSize{flex:1;background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--fg);border-radius:8px!important;cursor:pointer;line-height:1;padding:4px 0 3px}
-.cmSize:hover{background:rgba(255,255,255,.14)}
-.cmSize.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent-glow)}
+.cmSizeRow{border-top:1px solid rgba(255,255,255,.12);margin-top:10px;padding-top:10px}
+.cmSizeCtrl{display:flex;align-items:center;gap:6px}
+.cmSizeCtrl select,.cmSizeCtrl input[type=number]{background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--fg);font:12px/1.4 var(--font);border-radius:8px!important;outline:none;padding:6px 6px}
+.cmSizeCtrl select:focus,.cmSizeCtrl input[type=number]:focus{border-color:var(--accent)}
+.cmSizeCtrl select{flex:1.3;min-width:0;cursor:pointer}
+.cmSizeCtrl input[type=number]{flex:1;min-width:0;-moz-appearance:textfield}
+.cmSizeCtrl input[type=number]::-webkit-outer-spin-button,.cmSizeCtrl input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 .cmWheelWrap{position:relative;width:130px;height:130px;margin:2px auto 10px;touch-action:none}
 #cmWheel{border-radius:50%!important;display:block;cursor:crosshair}
 #cmWheelDot{position:absolute;width:12px;height:12px;margin:-6px 0 0 -6px;border:2px solid #fff;border-radius:50%!important;box-shadow:0 0 4px rgba(0,0,0,.7);pointer-events:none}
@@ -328,7 +331,16 @@ select.sel:focus{border-color:var(--accent)}
   <div class="cmRow">
     <button type="button" class="cmBtn" id="cmReset">기본색</button>
   </div>
-  <div class="cmSizes" id="cmSizes"></div>
+  <div class="cmSizeRow">
+    <span class="cmLbl">글자 크기</span>
+    <div class="cmSizeCtrl">
+      <select id="cmSizeSelect">
+        <option value="">직접입력</option>
+      </select>
+      <input type="number" id="cmSizeInput" min="6" max="300" placeholder="px">
+      <button type="button" class="cmBtn" id="cmSizeApply">적용</button>
+    </div>
+  </div>
 </div>
 
 <div id="settingsOverlay">
@@ -956,16 +968,26 @@ $('#cmApply').onclick = () => {
     b.onclick = () => applySelectionColor(c);
     grid.append(b);
   });
-  const sizes = $('#cmSizes');
+})();
+(function buildSizeSelect() {
+  const sel = $('#cmSizeSelect');
   CM_SIZES.forEach(px => {
-    const b = document.createElement('button');
-    b.type = 'button'; b.className = 'cmSize' + (px === 15 ? ' on' : '');
-    b.title = px === 15 ? '기본 크기' : (px + 'px');
-    b.style.fontSize = Math.min(px, 20) + 'px';
-    b.textContent = '가';
-    b.onclick = () => applySelectionSize(px);
-    sizes.append(b);
+    const opt = document.createElement('option');
+    opt.value = px; opt.textContent = px + 'px' + (px === 15 ? ' (기본)' : '');
+    sel.append(opt);
   });
+  sel.value = '15';
+  const input = $('#cmSizeInput');
+  const applyFromSelect = () => { if (sel.value) { input.value = sel.value; applySelectionSize(+sel.value); } };
+  const applyFromInput = () => {
+    const px = parseInt(input.value, 10);
+    if (px >= 6 && px <= 300) { sel.value = CM_SIZES.includes(px) ? String(px) : ''; applySelectionSize(px); }
+    else alert('6~300 사이의 숫자를 입력하세요.');
+  };
+  sel.onchange = applyFromSelect;
+  $('#cmSizeApply').onclick = applyFromInput;
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') applyFromInput(); });
+  input.addEventListener('input', () => { const px = +input.value; sel.value = CM_SIZES.includes(px) ? String(px) : ''; });
 })();
 $('#cmReset').onclick = () => applySelectionColor('inherit');
 document.addEventListener('click', e => { if (!e.target.closest('#colorMenu') && !e.target.closest('.ic')) closeColorMenu(); });
