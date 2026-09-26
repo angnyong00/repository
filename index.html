@@ -825,14 +825,24 @@ function applySelectionSize(px) {
   if (!colorMenuEd) return;
   const ed = colorMenuEd;
   ed.focus(); restoreSelection();
-  document.execCommand('styleWithCSS', false, true);
-  document.execCommand('fontSize', false, '7'); // 자리표시용 임시 크기(7) — 아래에서 실제 px로 치환
-  ed.querySelectorAll('font[size="7"]').forEach(f => {
-    const span = document.createElement('span');
-    span.style.fontSize = px + 'px';
-    while (f.firstChild) span.appendChild(f.firstChild);
-    f.replaceWith(span);
-  });
+  const sel = getSelection();
+  if (!sel.rangeCount) { closeColorMenu(); return; }
+  const range = sel.getRangeAt(0);
+  if (range.collapsed || !ed.contains(range.commonAncestorContainer)) { closeColorMenu(); return; }
+
+  // 선택한 범위만 정확히 span으로 감싸서 폰트 크기를 직접 지정.
+  // (예전 execCommand('fontSize') 방식은 브라우저마다 엉뚱하게 커지는 버그가 있어 제거함)
+  const span = document.createElement('span');
+  span.style.fontSize = px + 'px';
+  const frag = range.extractContents();
+  span.appendChild(frag);
+  range.insertNode(span);
+
+  sel.removeAllRanges();
+  const r2 = document.createRange();
+  r2.selectNodeContents(span);
+  sel.addRange(r2);
+
   closeColorMenu();
 }
 /* 색상환(휠) + 명도 슬라이더 + 헥스코드 입력 */
