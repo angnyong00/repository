@@ -181,6 +181,15 @@ select.sel:focus{border-color:var(--accent)}
 .cmHexRow input[type=text]{flex:1;min-width:0;background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--fg);font:12px/1.4 var(--font);padding:6px 8px;border-radius:8px!important;outline:none}
 .cmHexRow input[type=text]:focus{border-color:var(--accent)}
 
+/* 게시물 에디터: 이미지 크기 조절 오버레이 */
+#imgResizeOverlay{position:fixed;z-index:35;display:none;border:1.5px solid var(--accent,#fff);box-shadow:0 0 0 3000px rgba(0,0,0,0);pointer-events:none}
+#imgResizeOverlay.on{display:block}
+.imgHandle{position:absolute;width:13px;height:13px;right:-7px;bottom:-7px;background:#fff;border:2px solid rgba(0,0,0,.55);border-radius:50%!important;pointer-events:auto;cursor:nwse-resize;box-shadow:0 1px 4px rgba(0,0,0,.45)}
+.imgLockChip{position:absolute;top:-30px;left:0;pointer-events:auto;display:flex;align-items:center;gap:6px;background:var(--glass-strong,rgba(15,15,18,.92));border:1px solid var(--line,rgba(255,255,255,.18));border-radius:20px!important;padding:5px 10px;font-size:11px;color:var(--fg,#fff);cursor:pointer;white-space:nowrap;backdrop-filter:blur(10px);user-select:none;transition:border-color .15s}
+.imgLockChip .dot{width:7px;height:7px;border-radius:50%!important;background:var(--mute,#888);transition:background .15s}
+.imgLockChip.locked .dot{background:var(--accent,#4caf50)}
+.imgLockChip.locked{border-color:var(--accent,#4caf50)}
+
 /* BGM 미니 플레이어 (카세트 카드 · 반투명 화이트 글래스) */
 #bgmPlayer{position:fixed;left:18px;bottom:64px;z-index:15;width:min(252px,88vw);display:flex;flex-direction:column;align-items:stretch;gap:10px;padding:20px 14px 12px;cursor:grab;user-select:none;touch-action:none;
   background:rgba(255,255,255,.18);
@@ -341,6 +350,11 @@ select.sel:focus{border-color:var(--accent)}
       <button type="button" class="cmBtn" id="cmSizeApply">적용</button>
     </div>
   </div>
+</div>
+
+<div id="imgResizeOverlay">
+  <div class="imgLockChip" id="imgLockChip"><span class="dot"></span><span id="imgLockChipText">비율 고정</span></div>
+  <div class="imgHandle" id="imgResizeHandle"></div>
 </div>
 
 <div id="settingsOverlay">
@@ -551,6 +565,80 @@ async function resolveImages(container) {
   }
 }
 
+/* 게시물 에디터: 본문 이미지 크기 조절 (드래그 + 종횡비 고정/해제) */
+const imgLockMap = new WeakMap(); // img -> 비율 고정 여부(기본 true)
+const isImgLocked = img => imgLockMap.has(img) ? imgLockMap.get(img) : true;
+let selectedImg = null;
+let imgDrag = null;
+const imgOverlay = $('#imgResizeOverlay');
+const imgLockChip = $('#imgLockChip');
+const imgLockChipText = $('#imgLockChipText');
+const imgResizeHandle = $('#imgResizeHandle');
+
+function positionImgOverlay() {
+  if (!selectedImg || !selectedImg.isConnected) { deselectImg(); return; }
+  const r = selectedImg.getBoundingClientRect();
+  imgOverlay.style.left = r.left + 'px';
+  imgOverlay.style.top = r.top + 'px';
+  imgOverlay.style.width = r.width + 'px';
+  imgOverlay.style.height = r.height + 'px';
+}
+function refreshLockChip() {
+  const locked = isImgLocked(selectedImg);
+  imgLockChip.classList.toggle('locked', locked);
+  imgLockChipText.textContent = locked ? '비율 고정' : '비율 자유';
+}
+function selectImg(img) {
+  selectedImg = img;
+  imgOverlay.classList.add('on');
+  positionImgOverlay();
+  refreshLockChip();
+}
+function deselectImg() {
+  selectedImg = null;
+  imgOverlay.classList.remove('on');
+}
+imgLockChip.addEventListener('click', e => {
+  e.preventDefault(); e.stopPropagation();
+  if (!selectedImg) return;
+  imgLockMap.set(selectedImg, !isImgLocked(selectedImg));
+  refreshLockChip();
+});
+imgResizeHandle.addEventListener('mousedown', e => {
+  if (!selectedImg) return;
+  e.preventDefault(); e.stopPropagation();
+  const img = selectedImg;
+  const rect = img.getBoundingClientRect();
+  const host = img.closest('.editor.rich');
+  imgDrag = {
+    img, startX: e.clientX, startY: e.clientY,
+    startW: rect.width, startH: rect.height,
+    ratio: (img.naturalWidth && img.naturalHeight) ? img.naturalWidth / img.naturalHeight : (rect.width / rect.height || 1),
+    maxW: (host ? host.clientWidth : rect.width) || rect.width
+  };
+});
+document.addEventListener('mousemove', e => {
+  if (!imgDrag) return;
+  const { img, startX, startY, startW, startH, ratio, maxW } = imgDrag;
+  const dx = e.clientX - startX, dy = e.clientY - startY;
+  let w = Math.min(Math.max(40, startW + dx), maxW);
+  let h = isImgLocked(img) ? (w / ratio) : Math.max(40, startH + dy);
+  img.style.width = w + 'px';
+  img.style.height = h + 'px';
+  positionImgOverlay();
+});
+document.addEventListener('mouseup', () => {
+  if (imgDrag) { imgDrag = null; unsavedEdit = true; }
+});
+document.addEventListener('scroll', () => { if (selectedImg) positionImgOverlay(); }, true);
+window.addEventListener('resize', () => { if (selectedImg) positionImgOverlay(); });
+document.addEventListener('click', e => {
+  if (!selectedImg) return;
+  if (e.target === selectedImg || e.target.closest('#imgResizeOverlay')) return;
+  deselectImg();
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && selectedImg) deselectImg(); });
+
 let st = { cat: database.categories[0]?.id || null, post: null, mode: 'list' };
 
 /* 에디터에서 저장하지 않은 내용이 있는 채로 탭을 닫거나 새로고침하면 경고 */
@@ -637,6 +725,7 @@ $('#undoBtn').onclick = () => {
 
 /* 렌더링 */
 function render() {
+  deselectImg();
   $('#banner').style.backgroundImage = database.config.bannerImage ? `url(${JSON.stringify(database.config.bannerImage)})` : 'none';
   const si = $('#searchInput');
   if (si && st.mode !== 'search' && document.activeElement !== si) si.value = '';
@@ -1042,6 +1131,10 @@ function editor(m, c) {
   ed.addEventListener('input', () => { unsavedEdit = true; updateCounter(); });
   ed.addEventListener('contextmenu', e => {
     if (captureSelection(ed)) { e.preventDefault(); openColorMenu(e.clientX, e.clientY, ed); }
+  });
+  ed.addEventListener('click', e => {
+    const img = e.target.closest('img[data-img-id]');
+    if (img && ed.contains(img)) { e.preventDefault(); selectImg(img); }
   });
   ed.addEventListener('paste', async e => {
     const items = Array.from(e.clipboardData ? e.clipboardData.items : []);
