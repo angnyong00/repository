@@ -1043,6 +1043,27 @@ function editor(m, c) {
   ed.addEventListener('contextmenu', e => {
     if (captureSelection(ed)) { e.preventDefault(); openColorMenu(e.clientX, e.clientY, ed); }
   });
+  ed.addEventListener('paste', async e => {
+    const items = Array.from(e.clipboardData ? e.clipboardData.items : []);
+    const imgItem = items.find(it => it.kind === 'file' && it.type.startsWith('image/'));
+    if (!imgItem) return; // 이미지가 아니면 기본 붙여넣기 동작 그대로 둠
+    e.preventDefault(); // 브라우저가 base64로 통째로 박아넣는 걸 막음 (localStorage 용량 폭발 방지)
+    const file = imgItem.getAsFile();
+    if (!file) return;
+    const id = uid();
+    try { await idbPut(id, file); }
+    catch (err) { alert('이미지 저장에 실패했습니다.'); return; }
+    const sel = getSelection();
+    if (sel.rangeCount && ed.contains(sel.getRangeAt(0).commonAncestorContainer)) {
+      // 이미 에디터 안에 커서가 있으면 그 위치 그대로 사용
+    } else {
+      ed.focus();
+    }
+    const url = URL.createObjectURL(file);
+    document.execCommand('insertHTML', false,
+      `<img data-img-id="${id}" src="${url}" alt="" style="max-width:100%;display:block;margin:10px 0">`);
+    unsavedEdit = true; updateCounter();
+  });
   const tools = el('div', { class: 'tools' });
   TB.forEach(([cmd, label, d]) => {
     const b = el('button', { type: 'button', class: 'ic', title: label, 'aria-label': label, onmousedown: e => e.preventDefault(), onclick: e => {
